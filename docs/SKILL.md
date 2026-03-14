@@ -248,7 +248,7 @@ When desloppify itself appears wrong or inconsistent — a bug, a bad detection,
 Clone the tool repo to a temporary working directory, make the fix there, and verify it works against the project you're scanning before pushing.
 
 ```bash
-git clone https://github.com/peteromallet/desloppify.git <scratch-dir>/desloppify-fix
+git clone https://github.com/cpjet64/desloppify.git <scratch-dir>/desloppify-fix
 cd <scratch-dir>/desloppify-fix
 git checkout -b fix/<short-description>
 ```
@@ -279,11 +279,11 @@ Clean up after by deleting `<scratch-dir>/desloppify-fix` with your normal shell
 
 ### File an issue (fallback)
 
-If the fix is unclear or the change needs discussion, open an issue at `https://github.com/peteromallet/desloppify/issues` with a minimal repro: command, path, expected output, actual output.
+If the fix is unclear or the change needs discussion, open an issue at `https://github.com/cpjet64/desloppify/issues` with a minimal repro: command, path, expected output, actual output.
 
 ## Prerequisite
 
-`command -v desloppify >/dev/null 2>&1 && echo "desloppify: installed" || echo "NOT INSTALLED — run: uvx --from git+https://github.com/peteromallet/desloppify.git desloppify"`
+`command -v desloppify >/dev/null 2>&1 && echo "desloppify: installed" || echo "NOT INSTALLED — run: uvx --from git+https://github.com/cpjet64/desloppify.git desloppify"`
 
 If `uvx` is not available: `pip install desloppify[full]`
 

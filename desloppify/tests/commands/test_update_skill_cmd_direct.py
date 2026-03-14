@@ -33,7 +33,7 @@ def _install(
 
 
 def test_update_skill_helper_functions_cover_frontmatter_resolution_and_replace() -> None:
-    assert update_skill_cmd_mod._RAW_BASE == "https://raw.githubusercontent.com/peteromallet/desloppify/main/docs"
+    assert update_skill_cmd_mod._RAW_BASE == "https://raw.githubusercontent.com/cpjet64/desloppify/main/docs"
 
     content = (
         "<!-- desloppify-begin -->\n"
