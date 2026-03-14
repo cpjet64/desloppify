@@ -48,3 +48,4 @@ cotton-desloppify/
 dev/review/__pycache__/
 dev/website/
 dev/release/release-notes-drafts/
+.codex/worktrees.json
