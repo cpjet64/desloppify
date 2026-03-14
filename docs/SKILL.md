@@ -242,6 +242,7 @@ desloppify scan --path . --reset-subjective       # reset subjective baseline to
 ## 4. Fix Tool Issues Upstream
 
 When desloppify itself appears wrong or inconsistent — a bug, a bad detection, a crash, confusing output — **fix it and open a PR**. If you can't confidently fix it, file an issue instead.
+Do not patch installed `site-packages`; fix the forked repo or file an issue instead.
 
 ### Fix and PR (preferred)
 
