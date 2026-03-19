@@ -12,8 +12,9 @@
 	install-ci-tools \
 	install-full-tools
 
-PIP := python -m pip
-LINT_IMPORTS := $(shell python -c "import pathlib,sys; print(pathlib.Path(sys.executable).with_name('lint-imports'))")
+PYTHON ?= python3
+PIP := $(PYTHON) -m pip
+LINT_IMPORTS := $(shell $(PYTHON) -c "import pathlib,sys; print(pathlib.Path(sys.executable).with_name('lint-imports'))")
 IMPORTLINTER_CONFIG ?= .github/importlinter.ini
 PYTEST_XML ?=
 PYTEST_XML_FLAG := $(if $(PYTEST_XML),--junitxml=$(PYTEST_XML),)
@@ -30,7 +31,7 @@ lint: install-ci-tools
 	ruff check . --select E9,F63,F7,F82
 
 typecheck: install-ci-tools
-	python -m mypy
+	$(PYTHON) -m mypy
 
 arch: install-ci-tools
 	@if [ ! -f "$(IMPORTLINTER_CONFIG)" ]; then \
@@ -54,14 +55,13 @@ tests-full: install-full-tools
 
 package-smoke: install-ci-tools
 	rm -rf dist .pkg-smoke
-	python -m build
+	$(PYTHON) -m build
 	twine check dist/*
-	python -m venv .pkg-smoke
-	. .pkg-smoke/bin/activate && \
-		python -m pip install --upgrade pip && \
+	$(PYTHON) -m venv .pkg-smoke
+	.pkg-smoke/bin/python -m pip install --upgrade pip && \
 		WHEEL=$$(ls -t dist/desloppify-*.whl | head -n 1) && \
-		python -m pip install "$$WHEEL[full]" && \
-		python -c "import importlib.metadata as m,sys; extras=set(m.metadata('desloppify').get_all('Provides-Extra') or []); required={'full','treesitter','python-security','scorecard'}; missing=required-extras; print('missing extras metadata:', sorted(missing)) if missing else None; sys.exit(1 if missing else 0)" && \
+		.pkg-smoke/bin/python -m pip install "$$WHEEL[full]" && \
+		.pkg-smoke/bin/python -c "import importlib.metadata as m,sys; extras=set(m.metadata('desloppify').get_all('Provides-Extra') or []); required={'full','treesitter','python-security','scorecard'}; missing=required-extras; print('missing extras metadata:', sorted(missing)) if missing else None; sys.exit(1 if missing else 0)" && \
 		desloppify --help > /dev/null
 	rm -rf .pkg-smoke
 

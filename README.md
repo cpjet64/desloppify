@@ -24,18 +24,18 @@ Use the prompt that matches your agent.
 I want you to improve the quality of this codebase. To do this, install and run desloppify.
 Run ALL of the following (requires Python 3.11+):
 
-python -m pip install --upgrade "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git"
-python -m desloppify update-skill codex
+python3 -m pip install --upgrade "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git"
+python3 -m desloppify update-skill codex
 
 Add .desloppify/ to your .gitignore — it contains local state that shouldn't be committed.
 
 Before scanning, check for directories that should be excluded (vendor, build output,
-generated code, worktrees, etc.) and exclude obvious ones with `python -m desloppify exclude <path>`.
+generated code, worktrees, etc.) and exclude obvious ones with `python3 -m desloppify exclude <path>`.
 Run the exclude command once per path.
 Share any questionable candidates with me before excluding.
 
-python -m desloppify scan --path .
-python -m desloppify next
+python3 -m desloppify scan --path .
+python3 -m desloppify next
 
 --path is the directory to scan (use "." for the whole project, or "src/" etc).
 
@@ -46,13 +46,13 @@ THE LOOP: run `next`. It is the execution queue from the living plan, not the wh
 It tells you what to fix now, which file, and the resolve command to run when done.
 Fix it, resolve it, run `next` again. Over and over. This is your main job.
 
-Use `python -m desloppify backlog` only when you need to inspect broader open work that is not currently
+Use `python3 -m desloppify backlog` only when you need to inspect broader open work that is not currently
 driving execution.
 
 Don't be lazy. Large refactors and small detailed fixes — do both with equal energy. No task
 is too big or too small. Fix things properly, not minimally.
 
-Use `python -m desloppify plan` / `python -m desloppify plan queue` to reorder priorities or cluster related issues. Rescan periodically.
+Use `python3 -m desloppify plan` / `python3 -m desloppify plan queue` to reorder priorities or cluster related issues. Rescan periodically.
 The scan output includes agent instructions — follow them, don't substitute your own analysis.
 If desloppify itself is broken, fix it in the forked repo or file an issue. Do not patch installed `site-packages`.
 ```
@@ -63,18 +63,18 @@ If desloppify itself is broken, fix it in the forked repo or file an issue. Do n
 I want you to improve the quality of this codebase. To do this, install and run desloppify.
 Run ALL of the following (requires Python 3.11+):
 
-python -m pip install --upgrade "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git"
-python -m desloppify update-skill claude
+python3 -m pip install --upgrade "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git"
+python3 -m desloppify update-skill claude
 
 Add .desloppify/ to your .gitignore — it contains local state that shouldn't be committed.
 
 Before scanning, check for directories that should be excluded (vendor, build output,
-generated code, worktrees, etc.) and exclude obvious ones with `python -m desloppify exclude <path>`.
+generated code, worktrees, etc.) and exclude obvious ones with `python3 -m desloppify exclude <path>`.
 Run the exclude command once per path.
 Share any questionable candidates with me before excluding.
 
-python -m desloppify scan --path .
-python -m desloppify next
+python3 -m desloppify scan --path .
+python3 -m desloppify next
 
 --path is the directory to scan (use "." for the whole project, or "src/" etc).
 
@@ -85,13 +85,13 @@ THE LOOP: run `next`. It is the execution queue from the living plan, not the wh
 It tells you what to fix now, which file, and the resolve command to run when done.
 Fix it, resolve it, run `next` again. Over and over. This is your main job.
 
-Use `python -m desloppify backlog` only when you need to inspect broader open work that is not currently
+Use `python3 -m desloppify backlog` only when you need to inspect broader open work that is not currently
 driving execution.
 
 Don't be lazy. Large refactors and small detailed fixes — do both with equal energy. No task
 is too big or too small. Fix things properly, not minimally.
 
-Use `python -m desloppify plan` / `python -m desloppify plan queue` to reorder priorities or cluster related issues. Rescan periodically.
+Use `python3 -m desloppify plan` / `python3 -m desloppify plan queue` to reorder priorities or cluster related issues. Rescan periodically.
 The scan output includes agent instructions — follow them, don't substitute your own analysis.
 If desloppify itself is broken, fix it in the forked repo or file an issue. Do not patch installed `site-packages`.
 ```
@@ -101,26 +101,26 @@ If desloppify itself is broken, fix it in the forked repo or file an issue. Do n
 ```text
 I want you to improve the quality of this codebase. Install and run desloppify first.
 
-python -m pip install --upgrade "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git"
+python3 -m pip install --upgrade "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git"
 
 If you are Codex, run:
-python -m desloppify update-skill codex
+python3 -m desloppify update-skill codex
 
 If you are Claude, run:
-python -m desloppify update-skill claude
+python3 -m desloppify update-skill claude
 
 Add .desloppify/ to .gitignore if it is not already ignored.
 Before scanning, look for obvious exclude candidates such as vendor, build output, generated
-code, and worktrees; exclude obvious ones with `python -m desloppify exclude <path>`, one path per command, but ask me before
+code, and worktrees; exclude obvious ones with `python3 -m desloppify exclude <path>`, one path per command, but ask me before
 excluding anything questionable.
 
 Then run:
-python -m desloppify scan --path .
-python -m desloppify next
+python3 -m desloppify scan --path .
+python3 -m desloppify next
 
-After that, stay in the `next` loop: fix the current item, resolve it, run `python -m desloppify next`
-again, and keep going. Use `python -m desloppify backlog` only when you need wider context, and use
-`python -m desloppify plan` / `python -m desloppify plan queue` to reorder or cluster work when needed.
+After that, stay in the `next` loop: fix the current item, resolve it, run `python3 -m desloppify next`
+again, and keep going. Use `python3 -m desloppify backlog` only when you need wider context, and use
+`python3 -m desloppify plan` / `python3 -m desloppify plan queue` to reorder or cluster work when needed.
 If desloppify itself is broken, fix it in the forked repo or file an issue instead of patching installed
 `site-packages`. The goal is to raise the strict score by actually improving the code, not by gaming the tool.
 ```
@@ -140,23 +140,23 @@ First, inspect the existing setup:
 
 If the skill is not installed yet, install from my fork and update the matching skill:
 
-python -m pip install --upgrade "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git"
+python3 -m pip install --upgrade "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git"
 
 If you are Codex, run:
-python -m desloppify update-skill codex
+python3 -m desloppify update-skill codex
 
 If you are Claude, run:
-python -m desloppify update-skill claude
+python3 -m desloppify update-skill claude
 
 Then continue from the current state:
-- if a scan has not been run yet, run `python -m desloppify scan --path .`
-- if scan state already exists, do not wipe it; continue with `python -m desloppify next`
+- if a scan has not been run yet, run `python3 -m desloppify scan --path .`
+- if scan state already exists, do not wipe it; continue with `python3 -m desloppify next`
 - if a task was partially completed, inspect the related files, finish it properly, and then run
   the resolve command the plan specifies
-- keep looping on `python -m desloppify next`
+- keep looping on `python3 -m desloppify next`
 
-Use `python -m desloppify backlog` only when you need broader context, and use `python -m desloppify plan` /
-`python -m desloppify plan queue` only when reprioritization is actually needed.
+Use `python3 -m desloppify backlog` only when you need broader context, and use `python3 -m desloppify plan` /
+`python3 -m desloppify plan queue` only when reprioritization is actually needed.
 If desloppify itself is broken, fix it in the forked repo or file an issue instead of patching installed
 `site-packages`. The goal is to resume momentum without losing the living plan or redoing work unnecessarily.
 ```

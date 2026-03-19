@@ -873,9 +873,13 @@ class TestCmdReviewPrepare:
         assert len(packet_files) == 1
         blind_packet = tmp_path / ".desloppify" / "review_packet_blind.json"
         assert blind_packet.exists()
-        prompt_files = list(runs_dir.glob("*/prompts/batch-*.md"))
+        prompt_files = sorted(runs_dir.glob("*/prompts/batch-*.md"))
         assert len(prompt_files) == 2
-        prompt_text = prompt_files[0].read_text()
+        prompt_text = next(
+            prompt_file.read_text()
+            for prompt_file in prompt_files
+            if prompt_file.name == "batch-1.md"
+        )
         assert "Blind packet:" in prompt_text
         assert str(blind_packet) in prompt_text
         assert "Previously flagged issues" in prompt_text

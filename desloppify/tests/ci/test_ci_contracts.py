@@ -122,6 +122,15 @@ def test_makefile_contains_ci_gate_targets() -> None:
     assert expected.issubset(targets)
 
 
+def test_makefile_uses_configurable_python_interpreter() -> None:
+    text = MAKEFILE.read_text()
+    assert "PYTHON ?= python3" in text
+    assert "PIP := $(PYTHON) -m pip" in text
+    assert "$(PYTHON) -m mypy" in text
+    assert "$(PYTHON) -m build" in text
+    assert "$(PYTHON) -m venv .pkg-smoke" in text
+
+
 def test_ci_contracts_target_includes_phase_order_invariant() -> None:
     text = MAKEFILE.read_text()
     assert (
