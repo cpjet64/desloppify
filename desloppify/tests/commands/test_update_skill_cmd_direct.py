@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import desloppify.app.commands.update_skill.cmd as update_skill_cmd_mod
@@ -85,6 +86,55 @@ def test_update_skill_helper_functions_cover_frontmatter_resolution_and_replace(
             dedicated=False,
         )
         is None
+    )
+    assert (
+        update_skill_cmd_mod._hook_script_filename(
+            interface="codex_loop95",
+            overlay_name="CODEX_LOOP95",
+            dedicated=True,
+        )
+        == "CODEX_LOOP95.hook.py"
+    )
+    assert (
+        update_skill_cmd_mod._hook_script_filename(
+            interface="codex",
+            overlay_name="CODEX",
+            dedicated=True,
+        )
+        is None
+    )
+
+    merged_hooks = update_skill_cmd_mod._merge_codex_hooks_json(
+        json.dumps(
+            {
+                "hooks": {
+                    "Stop": [
+                        {
+                            "matcher": "keep-me",
+                            "hooks": [{"type": "command", "command": "python3 keep.py"}],
+                        }
+                    ]
+                }
+            }
+        ),
+        command="python3 /tmp/desloppify_loop95_hook.py",
+    )
+    hooks_payload = json.loads(merged_hooks)
+    assert hooks_payload["hooks"]["Stop"][0]["matcher"] == "keep-me"
+    assert any(
+        group.get("matcher") == "desloppify-loop95"
+        for group in hooks_payload["hooks"]["Stop"]
+    )
+    assert hooks_payload["hooks"]["UserPromptSubmit"][0]["matcher"] == "desloppify-loop95"
+
+    config_text = update_skill_cmd_mod._ensure_codex_hooks_enabled(
+        "model = \"gpt-5.4\"\n\n[features]\ncodex_hooks = false\n"
+    )
+    assert "[features]" in config_text
+    assert "codex_hooks = true" in config_text
+    assert (
+        update_skill_cmd_mod._shell_join(["python3", "/tmp/with space/hook.py"])
+        == "python3 '/tmp/with space/hook.py'"
     )
 
 
@@ -198,8 +248,12 @@ def test_update_installed_skill_supports_codex_loop95_target(
         "policy:\n"
         "  allow_implicit_invocation: false\n"
     )
+    hook_content = "print('{}')\n"
     target = tmp_path / ".codex" / "skills" / "desloppify-loop95" / "SKILL.md"
     metadata_path = target.parent / "agents" / "openai.yaml"
+    hook_path = tmp_path / ".codex" / "hooks" / "desloppify_loop95_hook.py"
+    hooks_json_path = tmp_path / ".codex" / "hooks.json"
+    config_path = tmp_path / ".codex" / "config.toml"
 
     def _download(filename: str) -> str:
         if filename == "SKILL.md":
@@ -208,6 +262,8 @@ def test_update_installed_skill_supports_codex_loop95_target(
             return overlay_content
         if filename == "CODEX_LOOP95.openai.yaml":
             return metadata_content
+        if filename == "CODEX_LOOP95.hook.py":
+            return hook_content
         raise KeyError(filename)
 
     monkeypatch.setattr(update_skill_cmd_mod, "_download", _download)
@@ -229,8 +285,23 @@ def test_update_installed_skill_supports_codex_loop95_target(
     assert 'display_name: "Desloppify Loop95"' in metadata
     assert "$desloppify-loop95" in metadata
     assert "allow_implicit_invocation: false" in metadata
+    assert hook_path.read_text(encoding="utf-8") == hook_content
+    hooks_payload = json.loads(hooks_json_path.read_text(encoding="utf-8"))
+    assert any(
+        group.get("matcher") == "desloppify-loop95"
+        for group in hooks_payload["hooks"]["Stop"]
+    )
+    assert any(
+        group.get("matcher") == "desloppify-loop95"
+        for group in hooks_payload["hooks"]["UserPromptSubmit"]
+    )
+    config_text = config_path.read_text(encoding="utf-8")
+    assert "[features]" in config_text
+    assert "codex_hooks = true" in config_text
     out = capsys.readouterr().out
     assert "Updated .codex/skills/desloppify-loop95/SKILL.md" in out
+    assert "Updated" in out and "hooks.json" in out
+    assert "Enabled Codex hooks" in out
 
 
 def test_update_installed_skill_supports_project_scoped_codex_loop95_metadata(
@@ -252,6 +323,7 @@ def test_update_installed_skill_supports_project_scoped_codex_loop95_metadata(
         "policy:\n"
         "  allow_implicit_invocation: false\n"
     )
+    hook_content = "print('{}')\n"
 
     def _download(filename: str) -> str:
         if filename == "SKILL.md":
@@ -260,6 +332,8 @@ def test_update_installed_skill_supports_project_scoped_codex_loop95_metadata(
             return overlay_content
         if filename == "CODEX_LOOP95.openai.yaml":
             return metadata_content
+        if filename == "CODEX_LOOP95.hook.py":
+            return hook_content
         raise KeyError(filename)
 
     monkeypatch.setattr(update_skill_cmd_mod, "_download", _download)
@@ -281,6 +355,9 @@ def test_update_installed_skill_supports_project_scoped_codex_loop95_metadata(
         / "agents"
         / "openai.yaml"
     ).is_file()
+    assert (tmp_path / ".codex" / "hooks" / "desloppify_loop95_hook.py").is_file()
+    assert (tmp_path / ".codex" / "hooks.json").is_file()
+    assert (tmp_path / ".codex" / "config.toml").is_file()
 
 
 def test_cmd_update_skill_handles_missing_and_ambiguous_installs(monkeypatch, capsys) -> None:

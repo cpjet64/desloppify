@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import json
+import os
+import re
+import shlex
 import ssl
+import subprocess
+import sys
+import tomllib
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -26,6 +33,10 @@ from desloppify.base.exception_sets import CommandError
 from desloppify.base.output.terminal import colorize
 
 _RAW_BASE = "https://raw.githubusercontent.com/cpjet64/desloppify/main/docs"
+_CODEX_LOOP95_HOOK_SCRIPT = "desloppify_loop95_hook.py"
+_CODEX_LOOP95_GROUP_MARKER = "desloppify-loop95"
+_CODEX_LOOP95_PROMPT_STATUS = "desloppify-loop95 prompt gate"
+_CODEX_LOOP95_STOP_STATUS = "desloppify-loop95 Ralph loop"
 
 
 def _get_home_path() -> Path:
@@ -104,6 +115,13 @@ def _optional_metadata_filename(*, overlay_name: str | None, dedicated: bool) ->
     return f"{overlay_name}.openai.yaml"
 
 
+def _hook_script_filename(*, interface: str, overlay_name: str | None, dedicated: bool) -> str | None:
+    """Return the optional hook script asset filename for a supported target."""
+    if interface != "codex_loop95" or not dedicated or not overlay_name:
+        return None
+    return f"{overlay_name}.hook.py"
+
+
 def _download_optional_asset(filename: str | None, download_fn) -> str | None:
     """Best-effort download for optional skill assets.
 
@@ -116,6 +134,155 @@ def _download_optional_asset(filename: str | None, download_fn) -> str | None:
         return download_fn(filename)
     except (urllib.error.URLError, OSError, KeyError):
         return None
+
+
+def _codex_config_root(
+    *,
+    scope: SkillScope,
+    get_home_path_fn,
+    get_project_root_fn,
+) -> Path:
+    """Return the active Codex config root for the requested install scope."""
+    if scope == "user":
+        return get_home_path_fn() / ".codex"
+    return get_project_root_fn() / ".codex"
+
+
+def _shell_join(parts: list[str]) -> str:
+    """Return a shell-safe command string for the current platform."""
+    if os.name == "nt":
+        return subprocess.list2cmdline(parts)
+    return " ".join(shlex.quote(part) for part in parts)
+
+
+def _codex_loop95_hook_command(script_path: Path) -> str:
+    """Build the command string Codex should execute for the loop95 hook."""
+    return _shell_join([sys.executable, str(script_path)])
+
+
+def _codex_loop95_group(*, status_message: str, command: str) -> dict[str, object]:
+    """Return one merge-stable Claude-style hook matcher group."""
+    return {
+        "matcher": _CODEX_LOOP95_GROUP_MARKER,
+        "hooks": [
+            {
+                "type": "command",
+                "command": command,
+                "timeout": 30,
+                "statusMessage": status_message,
+            }
+        ],
+    }
+
+
+def _is_codex_loop95_group(group: object) -> bool:
+    """Return True when an existing hook matcher group belongs to loop95."""
+    if not isinstance(group, dict):
+        return False
+    matcher = str(group.get("matcher", "")).strip().lower()
+    if matcher == _CODEX_LOOP95_GROUP_MARKER:
+        return True
+    hooks = group.get("hooks")
+    if not isinstance(hooks, list):
+        return False
+    for hook in hooks:
+        if not isinstance(hook, dict):
+            continue
+        command = str(hook.get("command", "")).strip()
+        if _CODEX_LOOP95_HOOK_SCRIPT in command:
+            return True
+    return False
+
+
+def _merged_hook_groups(
+    groups: object,
+    *,
+    command: str,
+    status_message: str,
+) -> list[dict[str, object]]:
+    """Return a hooks.json event list with the loop95 group updated in place."""
+    if groups is None:
+        merged: list[dict[str, object]] = []
+    elif isinstance(groups, list):
+        merged = [
+            group for group in groups
+            if not _is_codex_loop95_group(group)
+        ]
+    else:
+        raise CommandError("Existing Codex hooks.json is invalid: hook event entries must be arrays.")
+    merged.append(_codex_loop95_group(status_message=status_message, command=command))
+    return merged
+
+
+def _merge_codex_hooks_json(existing_text: str | None, *, command: str) -> str:
+    """Merge the loop95 hook handlers into an existing Claude-style hooks.json."""
+    if existing_text and existing_text.strip():
+        try:
+            payload = json.loads(existing_text)
+        except json.JSONDecodeError as exc:
+            raise CommandError(
+                f"Existing Codex hooks.json is invalid JSON: {exc.msg} at line {exc.lineno} column {exc.colno}."
+            ) from exc
+        if not isinstance(payload, dict):
+            raise CommandError("Existing Codex hooks.json must contain a JSON object at the top level.")
+    else:
+        payload = {}
+
+    hooks = payload.get("hooks")
+    if hooks is None:
+        hooks = {}
+        payload["hooks"] = hooks
+    if not isinstance(hooks, dict):
+        raise CommandError("Existing Codex hooks.json is invalid: top-level `hooks` must be an object.")
+
+    hooks["UserPromptSubmit"] = _merged_hook_groups(
+        hooks.get("UserPromptSubmit"),
+        command=command,
+        status_message=_CODEX_LOOP95_PROMPT_STATUS,
+    )
+    hooks["Stop"] = _merged_hook_groups(
+        hooks.get("Stop"),
+        command=command,
+        status_message=_CODEX_LOOP95_STOP_STATUS,
+    )
+    return json.dumps(payload, indent=2) + "\n"
+
+
+_FEATURES_SECTION_RE = re.compile(r"(?ms)^\[features\]\s*$.*?(?=^\[|\Z)")
+
+
+def _ensure_codex_hooks_enabled(existing_text: str | None) -> str:
+    """Return config.toml text with `[features].codex_hooks = true` enforced."""
+    text = existing_text or ""
+    if text.strip():
+        try:
+            tomllib.loads(text)
+        except tomllib.TOMLDecodeError as exc:
+            raise CommandError(f"Existing Codex config.toml is invalid TOML: {exc}.") from exc
+    else:
+        return "[features]\ncodex_hooks = true\n"
+
+    section_match = _FEATURES_SECTION_RE.search(text)
+    if section_match is None:
+        updated = text.rstrip() + "\n\n[features]\ncodex_hooks = true\n"
+    else:
+        section = section_match.group(0)
+        if re.search(r"(?m)^\s*codex_hooks\s*=", section):
+            replacement = re.sub(
+                r"(?m)^(\s*codex_hooks\s*=\s*).*$",
+                r"\1true",
+                section,
+                count=1,
+            )
+        else:
+            replacement = section.rstrip() + "\ncodex_hooks = true\n"
+        updated = text[: section_match.start()] + replacement + text[section_match.end() :]
+
+    try:
+        tomllib.loads(updated)
+    except tomllib.TOMLDecodeError as exc:
+        raise CommandError(f"Generated Codex config.toml update is invalid TOML: {exc}.") from exc
+    return updated
 
 
 _FRONTMATTER_FIRST_INTERFACES = frozenset({"amp", "codex", "codex_loop95"})
@@ -267,12 +434,23 @@ def _update_installed_skill_with_deps(
         ),
         download_fn,
     )
+    hook_script_content = None
+    if interface == "codex_loop95":
+        hook_filename = _hook_script_filename(
+            interface=interface,
+            overlay_name=target.overlay_name,
+            dedicated=target.dedicated,
+        )
+        try:
+            hook_script_content = download_fn(hook_filename) if hook_filename else None
+        except (urllib.error.URLError, OSError, KeyError) as exc:
+            print(colorize_fn(f"Hook asset download failed: {exc}", "red"))
+            return False
 
     new_section = _build_section(skill_content, overlay_content)
     if interface in _FRONTMATTER_FIRST_INTERFACES:
         new_section = _ensure_frontmatter_first(new_section)
 
-    target_path.parent.mkdir(parents=True, exist_ok=True)
     if target.dedicated:
         result = new_section
     elif target_path.is_file():
@@ -281,11 +459,51 @@ def _update_installed_skill_with_deps(
     else:
         result = new_section
 
+    hook_script_path: Path | None = None
+    merged_hooks_json: str | None = None
+    updated_codex_config: str | None = None
+    codex_hooks_path: Path | None = None
+    codex_config_path: Path | None = None
+    if interface == "codex_loop95" and hook_script_content is not None:
+        codex_root = _codex_config_root(
+            scope=resolved_scope,
+            get_home_path_fn=get_home_path_fn,
+            get_project_root_fn=get_project_root_fn,
+        )
+        hook_script_path = codex_root / "hooks" / _CODEX_LOOP95_HOOK_SCRIPT
+        codex_hooks_path = codex_root / "hooks.json"
+        codex_config_path = codex_root / "config.toml"
+        try:
+            merged_hooks_json = _merge_codex_hooks_json(
+                codex_hooks_path.read_text(encoding="utf-8", errors="replace")
+                if codex_hooks_path.is_file()
+                else None,
+                command=_codex_loop95_hook_command(hook_script_path),
+            )
+            updated_codex_config = _ensure_codex_hooks_enabled(
+                codex_config_path.read_text(encoding="utf-8", errors="replace")
+                if codex_config_path.is_file()
+                else None
+            )
+        except (CommandError, OSError) as exc:
+            print(colorize_fn(str(exc), "red"))
+            return False
+
+    target_path.parent.mkdir(parents=True, exist_ok=True)
     safe_write_text_fn(target_path, result)
     if metadata_content is not None:
         metadata_path = target_path.parent / "agents" / "openai.yaml"
         metadata_path.parent.mkdir(parents=True, exist_ok=True)
         safe_write_text_fn(metadata_path, metadata_content.rstrip() + "\n")
+    if hook_script_path is not None and hook_script_content is not None:
+        hook_script_path.parent.mkdir(parents=True, exist_ok=True)
+        safe_write_text_fn(hook_script_path, hook_script_content.rstrip() + "\n")
+    if codex_hooks_path is not None and merged_hooks_json is not None:
+        codex_hooks_path.parent.mkdir(parents=True, exist_ok=True)
+        safe_write_text_fn(codex_hooks_path, merged_hooks_json)
+    if codex_config_path is not None and updated_codex_config is not None:
+        codex_config_path.parent.mkdir(parents=True, exist_ok=True)
+        safe_write_text_fn(codex_config_path, updated_codex_config)
 
     version_match = SKILL_VERSION_RE.search(new_section)
     version = version_match.group(1) if version_match else "?"
@@ -295,6 +513,10 @@ def _update_installed_skill_with_deps(
             "green",
         )
     )
+    if interface == "codex_loop95" and codex_hooks_path is not None and codex_config_path is not None:
+        print(colorize_fn(f"Updated {codex_hooks_path}", "green"))
+        print(colorize_fn(f"Enabled Codex hooks in {codex_config_path}", "green"))
+        print(colorize_fn("Restart Codex to reload the updated hook configuration.", "yellow"))
     if interface in {"codex", "codex_loop95", "claude"} and resolved_scope == "project":
         print(colorize_fn("Wrote the project-scoped compatibility install.", "yellow"))
     return True

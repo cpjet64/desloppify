@@ -9,7 +9,7 @@ description: >
 ---
 
 <!-- desloppify-begin -->
-<!-- desloppify-skill-version: 9 -->
+<!-- desloppify-skill-version: 10 -->
 
 # Desloppify
 
@@ -181,7 +181,8 @@ See your editor's overlay section below for the agent config format.
 ### Installing this skill
 
 - `desloppify update-skill codex` installs the native Codex skill to `~/.codex/skills/desloppify/SKILL.md`.
-- `desloppify update-skill codex_loop95` installs the optional Codex loop skill to `~/.codex/skills/desloppify-loop95/SKILL.md`, adds `agents/openai.yaml`, and tells Codex to keep working until strict score is at least 95.
+- `desloppify update-skill codex_loop95` installs the optional Codex loop skill to `~/.codex/skills/desloppify-loop95/SKILL.md`, adds `agents/openai.yaml`, writes `~/.codex/hooks.json` plus `~/.codex/hooks/desloppify_loop95_hook.py`, enables `[features].codex_hooks = true`, and keeps Codex looping until strict score is at least 95.
+- Once `$desloppify-loop95` is activated in a session, the Ralph loop stop hook blocks completion until strict is at least 95 and no immediate subjective review refresh is pending. If the repo is genuinely blocked, end with `LOOP95_BLOCKED:` plus the exact command, exact error, and current strict score.
 - `desloppify update-skill claude` installs the native Claude skill to `~/.claude/skills/desloppify/SKILL.md`.
 - `desloppify update-skill <interface> --scope project` writes the legacy repo-local compatibility install instead.
 - If multiple skills are installed, pass the interface explicitly instead of relying on auto-detection.

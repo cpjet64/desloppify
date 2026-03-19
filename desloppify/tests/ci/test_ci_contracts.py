@@ -19,6 +19,7 @@ README = REPO_ROOT / "README.md"
 SKILL_DOC = REPO_ROOT / "docs" / "SKILL.md"
 CODEX_LOOP95_DOC = REPO_ROOT / "docs" / "CODEX_LOOP95.md"
 CODEX_LOOP95_METADATA = REPO_ROOT / "docs" / "CODEX_LOOP95.openai.yaml"
+CODEX_LOOP95_HOOK = REPO_ROOT / "docs" / "CODEX_LOOP95.hook.py"
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 SKILL_DOCS_IMPL = REPO_ROOT / "desloppify" / "app" / "skill_docs.py"
 
@@ -194,6 +195,14 @@ def test_codex_loop95_skill_guidance_is_documented() -> None:
     assert "agents/openai.yaml" in readme
     assert "agents/openai.yaml" in skill_doc
     assert "agents/openai.yaml" in loop_doc
+    assert "hooks.json" in readme
+    assert "hooks.json" in skill_doc
+    assert "hooks.json" in loop_doc
+    assert "codex_hooks = true" in readme
+    assert "codex_hooks = true" in loop_doc
+    assert "LOOP95_BLOCKED:" in skill_doc
+    assert "LOOP95_BLOCKED:" in loop_doc
+    assert CODEX_LOOP95_HOOK.is_file()
 
 
 def test_codex_loop95_openai_metadata_contract() -> None:
@@ -204,6 +213,7 @@ def test_codex_loop95_openai_metadata_contract() -> None:
     assert interface["display_name"] == "Desloppify Loop95"
     assert "$desloppify-loop95" in interface["default_prompt"]
     assert "strict >= 95.0" in interface["default_prompt"]
+    assert "LOOP95_BLOCKED:" in interface["default_prompt"]
     assert policy["allow_implicit_invocation"] is False
 
 
