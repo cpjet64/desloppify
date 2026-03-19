@@ -18,6 +18,7 @@ MAKEFILE = REPO_ROOT / "Makefile"
 README = REPO_ROOT / "README.md"
 SKILL_DOC = REPO_ROOT / "docs" / "SKILL.md"
 PYPROJECT = REPO_ROOT / "pyproject.toml"
+SKILL_DOCS_IMPL = REPO_ROOT / "desloppify" / "app" / "skill_docs.py"
 
 
 def _load_yaml(path: Path) -> dict:
@@ -187,6 +188,16 @@ def test_codex_loop95_skill_guidance_is_documented() -> None:
     assert "desloppify update-skill codex_loop95" in readme
     assert "desloppify update-skill codex_loop95" in skill_doc
     assert "~/.codex/skills/desloppify-loop95/SKILL.md" in skill_doc
+
+
+def test_skill_version_marker_matches_runtime_constant() -> None:
+    skill_doc = SKILL_DOC.read_text()
+    skill_impl = SKILL_DOCS_IMPL.read_text()
+    marker_match = re.search(r"desloppify-skill-version:\s*(\d+)", skill_doc)
+    constant_match = re.search(r"SKILL_VERSION\s*=\s*(\d+)", skill_impl)
+    assert marker_match is not None
+    assert constant_match is not None
+    assert marker_match.group(1) == constant_match.group(1)
 
 
 def test_ci_plan_required_checks_match_ci_workflow() -> None:
