@@ -244,7 +244,7 @@ def test_update_installed_skill_supports_codex_loop95_target(
         "interface:\n"
         '  display_name: "Desloppify Loop95"\n'
         '  short_description: "Raise strict score to 95 with a persistent fix loop."\n'
-        '  default_prompt: "Use $desloppify-loop95 to inspect the current repo state, run `desloppify scan --path .`, refresh review if needed, and keep looping until strict >= 95.0."\n'
+        '  default_prompt: "Use $desloppify-loop95 to inspect the current repo state, run `desloppify scan --path .`, check `desloppify status`, review this scan cycle if needed, then work `desloppify next` until strict >= 95.0."\n'
         "policy:\n"
         "  allow_implicit_invocation: false\n"
     )
@@ -319,7 +319,7 @@ def test_update_installed_skill_supports_project_scoped_codex_loop95_metadata(
         "interface:\n"
         '  display_name: "Desloppify Loop95"\n'
         '  short_description: "Raise strict score to 95 with a persistent fix loop."\n'
-        '  default_prompt: "Use $desloppify-loop95 to inspect the current repo state and keep looping until strict >= 95.0."\n'
+        '  default_prompt: "Use $desloppify-loop95 to inspect the current repo state, then keep looping until strict >= 95.0."\n'
         "policy:\n"
         "  allow_implicit_invocation: false\n"
     )

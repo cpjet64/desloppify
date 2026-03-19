@@ -64,7 +64,7 @@ python3 -m desloppify update-skill codex_loop95
 ```
 
 That installs `~/.codex/skills/desloppify-loop95/SKILL.md` plus `~/.codex/skills/desloppify-loop95/agents/openai.yaml`, so explicit `$desloppify-loop95` invocation starts with a real loop prompt instead of just adding passive instructions.
-It also writes `~/.codex/hooks.json` plus `~/.codex/hooks/desloppify_loop95_hook.py`, enables `[features].codex_hooks = true` in `~/.codex/config.toml`, and keeps that session running until strict is at least 95 unless the agent reports `LOOP95_BLOCKED:` with the exact blocker.
+It also writes `~/.codex/hooks.json` plus `~/.codex/hooks/desloppify_loop95_hook.py`, enables `[features].codex_hooks = true` in `~/.codex/config.toml`, and keeps that session running until strict is at least 95. The enforced loop is scan, review the current scan when below target, execute the living plan, auto-promote backlog when `next` empties, then rescan. If the agent is genuinely blocked below target, it must report `LOOP95_BLOCKED:` with the exact blocker.
 
 ### Claude prompt
 

@@ -11,6 +11,7 @@ from typing import Any
 import desloppify.intelligence.narrative.core as narrative_mod
 from desloppify.base.coercions import coerce_positive_int
 from desloppify.base.exception_sets import PLAN_LOAD_EXCEPTIONS
+from desloppify.base.review_commands import build_review_run_batches_command
 from desloppify.engine._plan.persistence import plan_path_for_state
 from desloppify.engine._state.schema import StateModel
 from desloppify.intelligence.review.prepare import (
@@ -141,28 +142,14 @@ def _attach_plan_deferral_context(
 
 def build_run_batches_next_command(context: ReviewPacketContext) -> str:
     """Return the canonical next command for local batch-based review."""
-    parts: list[str] = [
-        "desloppify",
-        "review",
-        "--run-batches",
-        "--runner",
-        "codex",
-        "--parallel",
-        "--scan-after-import",
-    ]
-    parts.extend(["--path", str(context.path)])
-    if context.state_path is not None:
-        parts.extend(["--state", str(context.state_path)])
-    if context.dimensions:
-        parts.extend(["--dimensions", ",".join(context.dimensions)])
-    if not context.retrospective:
-        parts.append("--no-retrospective")
-    else:
-        if context.retrospective_max_issues != 30:
-            parts.extend(["--retrospective-max-issues", str(context.retrospective_max_issues)])
-        if context.retrospective_max_batch_items != 20:
-            parts.extend(["--retrospective-max-batch-items", str(context.retrospective_max_batch_items)])
-    return " ".join(parts)
+    return build_review_run_batches_command(
+        scan_path=context.path,
+        state_path=context.state_path,
+        dimensions=context.dimensions,
+        retrospective=context.retrospective,
+        retrospective_max_issues=context.retrospective_max_issues,
+        retrospective_max_batch_items=context.retrospective_max_batch_items,
+    )
 
 
 def prepared_packet_contract(

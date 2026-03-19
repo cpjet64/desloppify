@@ -10,13 +10,14 @@ if TYPE_CHECKING:
     from desloppify.engine._work_queue.snapshot import QueueSnapshot
 
 from desloppify.app.commands.helpers.queue_progress import format_plan_delta
+from desloppify.base.loop_state import evaluate_loop_state
 from desloppify.base.output.terminal import colorize
 from desloppify.engine._state.issue_semantics import is_review_finding
 from desloppify.engine._work_queue.helpers import is_auto_fix_item
-from desloppify.engine.work_queue import group_queue_items
 from desloppify.engine.planning.scorecard_projection import (
     scorecard_subjective_entries,
 )
+from desloppify.engine.work_queue import group_queue_items
 from desloppify.intelligence.integrity import subjective_review_open_breakdown
 
 _ACTION_TYPE_LABELS = {
@@ -36,6 +37,14 @@ _CLUSTER_NAME_LABELS = {
 class ClusterTypeLabels:
     action_types: dict[str, str]
     cluster_names: dict[str, str]
+
+
+@dataclass(frozen=True)
+class EmptyQueueGuidance:
+    """Specific empty-state guidance for the execution queue."""
+
+    headline: str
+    lines: tuple[str, ...]
 
 
 CLUSTER_TYPE_LABELS = ClusterTypeLabels(
@@ -253,16 +262,85 @@ def render_queue_header(
         render_queue_explanation(snapshot, plan)
 
 
+def build_empty_queue_guidance(
+    *,
+    state: dict,
+    plan: dict | None,
+    target_strict: float,
+    active_cluster: str | None = None,
+) -> EmptyQueueGuidance | None:
+    """Return a more specific follow-up for an empty execution queue."""
+    summary = evaluate_loop_state(
+        state=state,
+        plan=plan,
+        target_strict=target_strict,
+    )
+    if active_cluster and summary.execution_count > 0:
+        return EmptyQueueGuidance(
+            headline="Current cluster focus has no remaining visible items.",
+            lines=(
+                "Run `desloppify plan focus --clear` to return to the full execution queue.",
+                "Use `desloppify plan queue` to inspect the remaining global work.",
+            ),
+        )
+    if summary.action.kind == "review":
+        return EmptyQueueGuidance(
+            headline="No execution items are visible yet, but subjective review is pending for this scan.",
+            lines=(
+                f"Run `{summary.review_prepare_command}` and finish your preferred review workflow.",
+                "After the review import completes, run `desloppify next` again.",
+            ),
+        )
+    if summary.action.kind == "show_review":
+        return EmptyQueueGuidance(
+            headline="Execution is empty, but review work is still open.",
+            lines=(
+                "Run `desloppify show review --status open` and work through those findings first.",
+                "Return to `desloppify next` after the review queue is drained.",
+            ),
+        )
+    if summary.action.kind == "promote" and summary.backlog_promote_command:
+        backlog_summary = (
+            f"Top backlog item: {summary.backlog_summary}."
+            if summary.backlog_summary
+            else "Broader backlog work remains outside the execution queue."
+        )
+        return EmptyQueueGuidance(
+            headline="Execution queue is empty, but promotable backlog remains.",
+            lines=(
+                backlog_summary,
+                f"Promote the next item with `{summary.backlog_promote_command}`.",
+                "Use `desloppify backlog --count 5` if you want to inspect more backlog before promoting.",
+            ),
+        )
+    if summary.strict_score < summary.target_strict:
+        return EmptyQueueGuidance(
+            headline=(
+                "No execution items remain, but "
+                f"strict {summary.strict_score:.1f}/{summary.target_strict:.1f} is still below target."
+            ),
+            lines=(
+                "Inspect `desloppify backlog`, `desloppify plan`, and `desloppify status` before stopping.",
+            ),
+        )
+    return None
+
+
 def show_empty_queue(
     queue: dict,
     strict: float | None,
     *,
     plan_start_strict: float | None = None,
     target_strict: float | None = None,
+    guidance: EmptyQueueGuidance | None = None,
 ) -> bool:
-    del target_strict
     if queue.get("items"):
         return False
+    if guidance is not None:
+        print(colorize(f"\n  {guidance.headline}", "yellow"))
+        for line in guidance.lines:
+            print(colorize(f"  {line}", "dim"))
+        return True
     if plan_start_strict is not None and strict is not None:
         delta = format_plan_delta(strict, plan_start_strict)
         delta_str = f" ({delta})" if delta else ""
@@ -271,8 +349,11 @@ def show_empty_queue(
             f"  Frozen plan-start: strict {plan_start_strict:.1f} → Live estimate: strict {strict:.1f}{delta_str}",
             "cyan",
         ))
+        scan_hint = "desloppify scan"
+        if target_strict is not None and strict < target_strict:
+            scan_hint = "desloppify scan"
         print(colorize(
-            "  Run `desloppify scan` now to finalize and reveal your updated score.",
+            f"  Run `{scan_hint}` now to finalize and reveal your updated score.",
             "dim",
         ))
         return True
@@ -299,6 +380,8 @@ def render_compact_item(item: dict, idx: int, total: int) -> None:
 __all__ = [
     "CLUSTER_TYPE_LABELS",
     "ClusterTypeLabels",
+    "EmptyQueueGuidance",
+    "build_empty_queue_guidance",
     "cluster_action_commands",
     "effort_tag",
     "is_auto_fix_command",

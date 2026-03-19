@@ -148,6 +148,24 @@ def test_write_next_payload_adds_guardrail_warnings(monkeypatch) -> None:
     assert written == [payload]
 
 
+def test_apply_queue_view_transforms_syncs_queue_after_focus_filter(monkeypatch) -> None:
+    queue = {"items": [{"id": "smells::src/a.py::x"}], "total": 1}
+    monkeypatch.setattr(queue_flow_mod, "filter_cluster_focus", lambda *_a, **_k: [])
+
+    visible = queue_flow_mod._apply_queue_view_transforms(
+        items=[{"id": "smells::src/a.py::x"}],
+        queue=queue,
+        opts=_args(count=None),
+        plan_for_queue={"active_cluster": "auth"},
+        effective_cluster="auth",
+        collapse_plan_clusters=True,
+    )
+
+    assert visible == []
+    assert queue["items"] == []
+    assert queue["total"] == 0
+
+
 def test_build_and_render_execution_queue_renders_real_issue_and_payload(capsys) -> None:
     written: list[dict] = []
     item = {
@@ -192,6 +210,7 @@ def test_build_and_render_execution_queue_renders_real_issue_and_payload(capsys)
     assert written[0]["queue"]["mode"] == "execution"
     assert written[0]["items"][0]["summary"] == "Fix x"
     assert written[0]["items"][0]["file"] == "a.py"
+
 
 
 def test_build_and_render_execution_queue_uses_real_execution_policy(capsys) -> None:

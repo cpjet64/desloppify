@@ -17,12 +17,12 @@ from desloppify.base.output.user_message import print_user_message
 from desloppify.engine._state.filtering import path_scoped_issues
 from desloppify.engine._work_queue.context import queue_context
 from desloppify.engine._work_queue.core import QueueBuildOptions
-from desloppify.engine._work_queue.policy import explain_queue
-from desloppify.engine._work_queue.snapshot import build_queue_snapshot
 from desloppify.engine._work_queue.plan_order import (
     collapse_clusters,
     filter_cluster_focus,
 )
+from desloppify.engine._work_queue.policy import explain_queue
+from desloppify.engine._work_queue.snapshot import build_queue_snapshot
 from desloppify.engine.plan_state import load_plan
 from desloppify.engine.planning.queue_policy import (
     build_backlog_queue,
@@ -39,6 +39,7 @@ from .flow_helpers import merge_potentials_safe as _merge_potentials_safe
 from .flow_helpers import plan_queue_context as _plan_queue_context
 from .flow_helpers import resolve_cluster_focus as _resolve_cluster_focus
 from .options import NextOptions
+from .render_support import build_empty_queue_guidance as _build_empty_queue_guidance
 from .render_support import render_queue_header as _render_queue_header
 from .render_support import show_empty_queue as _show_empty_queue
 
@@ -172,6 +173,7 @@ def _render_empty_queue_view(
     write_query_fn,
     command_name: str,
     show_plan_context: bool,
+    effective_cluster: str | None,
     explain_snapshot=None,
 ) -> None:
     """Render and persist the empty queue state."""
@@ -183,12 +185,21 @@ def _render_empty_queue_view(
             plan_data=plan_for_queue,
             context=ctx,
         )
+    guidance = None
+    if command_name == "next":
+        guidance = _build_empty_queue_guidance(
+            state=state,
+            plan=plan_for_queue,
+            target_strict=target_strict,
+            active_cluster=effective_cluster,
+        )
     _render_queue_header(queue, opts.explain, snapshot=explain_snapshot, plan=plan_for_queue)
     _show_empty_queue(
         queue,
         strict_score,
         plan_start_strict=plan_start_strict,
         target_strict=target_strict,
+        guidance=guidance,
     )
     _write_next_payload(
         queue=queue,
@@ -343,6 +354,8 @@ def _apply_queue_view_transforms(
     ):
         visible = collapse_clusters(visible, plan_for_queue)
 
+    queue["items"] = visible
+    queue["total"] = len(visible)
     if opts.count:
         visible = visible[: opts.count]
         queue["items"] = visible
@@ -466,6 +479,7 @@ def _build_and_render_queue_view(
             write_query_fn=deps.write_query_fn,
             command_name=view.command_name,
             show_plan_context=view.show_plan_context,
+            effective_cluster=effective_cluster,
             explain_snapshot=explain_snapshot,
         )
         return

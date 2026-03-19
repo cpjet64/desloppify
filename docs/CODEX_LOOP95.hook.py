@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 TARGET_STRICT = 95.0
 SKILL_TOKEN = "$desloppify-loop95"
@@ -46,74 +44,80 @@ def _is_blocked_message(last_assistant_message: str | None) -> bool:
     return BLOCKER_TOKEN in str(last_assistant_message or "")
 
 
-def _state_summary_from_repo(cwd: str) -> dict[str, object]:
-    original_cwd = Path.cwd()
-    os.chdir(cwd)
-    try:
-        from desloppify.app.commands.helpers.state import state_path
-        from desloppify.base.review_commands import build_review_prepare_command
-        from desloppify.engine._plan.policy.stale import (
-            current_stale_ids,
-            current_under_target_ids,
-            current_unscored_ids,
-            open_review_ids,
-        )
-        from desloppify.state_io import load_state
-        from desloppify.state_scoring import score_snapshot
+def _state_summary_from_repo(cwd: str):
+    from desloppify.base.loop_state import evaluate_loop_state
 
-        args = SimpleNamespace(state=None, lang=None, command="status")
-        resolved_state_path = state_path(args)
-        state = load_state(resolved_state_path)
-        scores = score_snapshot(state)
-        scan_count = int(state.get("scan_count", 0) or 0)
-        scan_path = str(state.get("scan_path", "") or "").strip() or "."
-        return {
-            "strict_score": float(scores.strict),
-            "scan_count": scan_count,
-            "scan_path": scan_path,
-            "review_prepare_command": build_review_prepare_command(scan_path=scan_path),
-            "stale_subjective_count": len(current_stale_ids(state)),
-            "unscored_subjective_count": len(current_unscored_ids(state)),
-            "under_target_subjective_count": len(
-                current_under_target_ids(state, target_strict=TARGET_STRICT)
-            ),
-            "open_review_count": len(open_review_ids(state)),
-        }
-    finally:
-        os.chdir(original_cwd)
+    return evaluate_loop_state(cwd, target_strict=TARGET_STRICT)
 
 
-def _stop_reason(summary: dict[str, object]) -> str:
-    strict_score = float(summary.get("strict_score", 0.0) or 0.0)
-    scan_path = str(summary.get("scan_path", ".") or ".").strip() or "."
-    prepare_command = str(summary.get("review_prepare_command", "desloppify review --prepare"))
-    stale = int(summary.get("stale_subjective_count", 0) or 0)
-    unscored = int(summary.get("unscored_subjective_count", 0) or 0)
-    under_target = int(summary.get("under_target_subjective_count", 0) or 0)
-    open_review = int(summary.get("open_review_count", 0) or 0)
+def _summary_details(summary) -> str:
+    return ", ".join(
+        [
+            f"strict {summary.strict_score:.1f}/{summary.target_strict:.1f}",
+            f"phase={summary.phase or 'none'}",
+            f"open_review={summary.open_review_count}",
+            f"stale_subjective={summary.stale_subjective_count}",
+            f"unscored_subjective={summary.unscored_subjective_count}",
+            f"under_target_subjective={summary.under_target_subjective_count}",
+            f"execution={summary.execution_count}",
+            f"backlog={summary.backlog_count}",
+        ]
+    )
 
-    details = [
-        f"strict {strict_score:.1f}/{TARGET_STRICT:.1f}",
-        f"open_review={open_review}",
-        f"stale_subjective={stale}",
-        f"unscored_subjective={unscored}",
-        f"under_target_subjective={under_target}",
-    ]
-    if stale > 0 or unscored > 0 or open_review > 0:
+
+def _stop_reason(summary) -> str:
+    details = _summary_details(summary)
+    action = summary.action
+    scan_cmd = f"desloppify scan --path {summary.scan_path}"
+    if action.kind == "review":
         return (
             "desloppify-loop95 is still active "
-            f"({', '.join(details)}). Continue the loop from the current repo state. "
-            f"If review context is stale or missing, run `{prepare_command}` and then "
-            "`desloppify review --run-batches --runner codex --parallel --scan-after-import`. "
-            f"Otherwise use `desloppify next`, implement the current work, resolve it, rescan with "
-            f"`desloppify scan --path {scan_path}`, and re-check `desloppify status`. "
+            f"({details}). This scan cycle still needs subjective review before more execution work. "
+            f"Run `{summary.review_prepare_command}` and then `{summary.review_run_batches_command}`. "
+            "After review import, continue with `desloppify next`. "
             f"Stop only at strict >= {TARGET_STRICT:.1f}, or report `{BLOCKER_TOKEN}` with the exact command, "
             "exact error, and current strict score."
         )
+    if action.kind == "show_review":
+        return (
+            "desloppify-loop95 is still active "
+            f"({details}). Review findings are still open. "
+            f"Run `{action.primary_command}` and work through that review queue before returning to `desloppify next`. "
+            f"When the current work chunk is exhausted, rescan with `{scan_cmd}` and check `desloppify status` again. "
+            f"Stop only at strict >= {TARGET_STRICT:.1f}, or report `{BLOCKER_TOKEN}` with the exact command, "
+            "exact error, and current strict score."
+        )
+    if action.kind == "next":
+        top_item = f" Top execution item: {summary.execution_summary}." if summary.execution_summary else ""
+        primary = f" Primary action: `{summary.execution_primary_command}`." if summary.execution_primary_command else ""
+        return (
+            "desloppify-loop95 is still active "
+            f"({details}). Continue with `desloppify next`.{top_item}{primary} "
+            f"When the current work chunk is exhausted, rescan with `{scan_cmd}` and repeat. "
+            f"Stop only at strict >= {TARGET_STRICT:.1f}, or report `{BLOCKER_TOKEN}` with the exact command, "
+            "exact error, and current strict score."
+        )
+    if action.kind == "promote":
+        backlog_hint = f" Top backlog item: {summary.backlog_summary}." if summary.backlog_summary else ""
+        return (
+            "desloppify-loop95 is still active "
+            f"({details}). The execution queue is empty, but promotable backlog remains.{backlog_hint} "
+            f"Run `{action.primary_command}` and then `{action.secondary_command}`. "
+            f"When the current work chunk is exhausted, rescan with `{scan_cmd}` and repeat. "
+            f"Stop only at strict >= {TARGET_STRICT:.1f}, or report `{BLOCKER_TOKEN}` with the exact command, "
+            "exact error, and current strict score."
+        )
+    if action.kind == "blocked":
+        return (
+            "desloppify-loop95 is still active "
+            f"({details}), but no actionable review, execution, or backlog work remains below target. "
+            f"Stop only with `{BLOCKER_TOKEN}` followed by the exact command, exact error, and current strict score. "
+            f"If you still believe more work exists, verify with `{scan_cmd}`, `desloppify backlog --count 10`, "
+            "and `desloppify plan queue` first."
+        )
     return (
         "desloppify-loop95 is still active "
-        f"({', '.join(details)}). Continue with `desloppify next`, implement the current work, "
-        f"resolve it, rescan with `desloppify scan --path {scan_path}`, and re-check `desloppify status`. "
+        f"({details}). Continue from the current repo state, then re-check `desloppify status`. "
         f"Stop only at strict >= {TARGET_STRICT:.1f}, or report `{BLOCKER_TOKEN}` with the exact command, "
         "exact error, and current strict score."
     )
@@ -137,9 +141,12 @@ def handle_user_prompt_submit(payload: dict, *, config_root: Path) -> dict:
         "hookSpecificOutput": {
             "hookEventName": "UserPromptSubmit",
             "additionalContext": (
-                "desloppify-loop95 is active for this session. Do not stop until `desloppify status` "
-                f"shows `strict >= {TARGET_STRICT:.1f}` and review is fresh. If you are genuinely blocked, "
-                f"stop only with `{BLOCKER_TOKEN}` followed by the exact command, exact error, and current strict score."
+                "desloppify-loop95 is active for this session. Start with `desloppify scan --path .`, "
+                "check `desloppify status`, and if strict is still below target run subjective review for this scan "
+                "before continuing with `desloppify next`. When `next` empties, promote backlog work and keep going; "
+                f"when the current work chunk is exhausted, rescan. Do not stop until `desloppify status` shows "
+                f"`strict >= {TARGET_STRICT:.1f}` and review is fresh. If you are genuinely blocked, stop only with "
+                f"`{BLOCKER_TOKEN}` followed by the exact command, exact error, and current strict score."
             ),
         }
     }
@@ -168,23 +175,17 @@ def handle_stop(
             "systemMessage": f"desloppify-loop95 hook could not inspect repo state: {exc}",
         }
 
-    strict_score = float(summary.get("strict_score", 0.0) or 0.0)
-    scan_count = int(summary.get("scan_count", 0) or 0)
-    stale = int(summary.get("stale_subjective_count", 0) or 0)
-    unscored = int(summary.get("unscored_subjective_count", 0) or 0)
-    open_review = int(summary.get("open_review_count", 0) or 0)
-
-    if scan_count <= 0:
+    if summary.action.kind == "scan":
         return {
             "decision": "block",
-            "reason": (
-                "desloppify-loop95 is active but no scan state exists yet. Run `desloppify scan --path .` "
-                f"and continue until `desloppify status` shows `strict >= {TARGET_STRICT:.1f}`."
-            ),
+            "reason": f"desloppify-loop95 is active but no scan state exists yet. Run `{summary.action.primary_command}`.",
         }
-    if strict_score >= TARGET_STRICT and stale == 0 and unscored == 0 and open_review == 0:
+    if summary.action.kind == "done":
         return {
-            "systemMessage": f"desloppify-loop95 target met: strict {strict_score:.1f}/{TARGET_STRICT:.1f}.",
+            "systemMessage": (
+                "desloppify-loop95 target met: "
+                f"strict {summary.strict_score:.1f}/{summary.target_strict:.1f}."
+            ),
         }
     return {
         "decision": "block",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 HOOK_ASSET = REPO_ROOT / "docs" / "CODEX_LOOP95.hook.py"
@@ -14,6 +15,47 @@ def _load_hook_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _summary(
+    *,
+    strict: float,
+    kind: str,
+    primary_command: str | None = None,
+    secondary_command: str | None = None,
+    backlog_summary: str | None = None,
+    execution_summary: str | None = None,
+    execution_primary_command: str | None = None,
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        strict_score=strict,
+        target_strict=95.0,
+        scan_count=2,
+        scan_path=".",
+        phase="execute",
+        review_completed_for_scan=kind != "review",
+        stale_subjective_count=0,
+        unscored_subjective_count=0,
+        under_target_subjective_count=2 if strict < 95.0 else 0,
+        open_review_count=0,
+        execution_count=1 if kind == "next" else 0,
+        execution_primary_command=execution_primary_command,
+        execution_summary=execution_summary,
+        backlog_count=1 if kind == "promote" else 0,
+        objective_backlog_count=1 if kind == "promote" else 0,
+        backlog_promote_command=primary_command if kind == "promote" else None,
+        backlog_summary=backlog_summary,
+        review_prepare_command="desloppify review --prepare --path .",
+        review_run_batches_command=(
+            "desloppify review --run-batches --runner codex --parallel "
+            "--scan-after-import --path ."
+        ),
+        action=SimpleNamespace(
+            kind=kind,
+            primary_command=primary_command,
+            secondary_command=secondary_command,
+        ),
+    )
 
 
 def test_user_prompt_submit_activates_session_and_injects_context(tmp_path) -> None:
@@ -29,11 +71,12 @@ def test_user_prompt_submit_activates_session_and_injects_context(tmp_path) -> N
 
     assert "hookSpecificOutput" in response
     assert "strict >= 95.0" in response["hookSpecificOutput"]["additionalContext"]
+    assert "promote backlog work" in response["hookSpecificOutput"]["additionalContext"]
     session_state = hook_mod._read_session_state(tmp_path, "abc-123")
     assert session_state["enabled"] is True
 
 
-def test_stop_hook_blocks_when_loop95_session_is_active(tmp_path) -> None:
+def test_stop_hook_blocks_for_review_before_execution(tmp_path) -> None:
     hook_mod = _load_hook_module()
     hook_mod._write_session_state(tmp_path, "abc-123", {"enabled": True})
     payload = {
@@ -47,21 +90,42 @@ def test_stop_hook_blocks_when_loop95_session_is_active(tmp_path) -> None:
     response = hook_mod.handle_stop(
         payload,
         config_root=tmp_path,
-        state_summary_fn=lambda _cwd: {
-            "strict_score": 84.0,
-            "scan_count": 2,
-            "scan_path": ".",
-            "review_prepare_command": "desloppify review --prepare --path .",
-            "stale_subjective_count": 1,
-            "unscored_subjective_count": 0,
-            "under_target_subjective_count": 2,
-            "open_review_count": 0,
-        },
+        state_summary_fn=lambda _cwd: _summary(strict=84.0, kind="review"),
     )
 
     assert response["decision"] == "block"
     assert "strict 84.0/95.0" in response["reason"]
+    assert "subjective review" in response["reason"]
     assert "review --run-batches --runner codex --parallel --scan-after-import" in response["reason"]
+
+
+def test_stop_hook_blocks_with_backlog_promotion_when_execution_is_empty(tmp_path) -> None:
+    hook_mod = _load_hook_module()
+    hook_mod._write_session_state(tmp_path, "abc-123", {"enabled": True})
+    payload = {
+        "hook_event_name": "Stop",
+        "permission_mode": "default",
+        "session_id": "abc-123",
+        "cwd": str(tmp_path),
+        "last_assistant_message": "I think this is done.",
+    }
+
+    response = hook_mod.handle_stop(
+        payload,
+        config_root=tmp_path,
+        state_summary_fn=lambda _cwd: _summary(
+            strict=88.0,
+            kind="promote",
+            primary_command="desloppify plan promote smells::src/a.py::dead-branch top",
+            secondary_command="desloppify next",
+            backlog_summary="Remove dead branch",
+        ),
+    )
+
+    assert response["decision"] == "block"
+    assert "promotable backlog remains" in response["reason"]
+    assert "plan promote smells::src/a.py::dead-branch top" in response["reason"]
+    assert "`desloppify next`" in response["reason"]
 
 
 def test_stop_hook_allows_blocker_escape_hatch(tmp_path) -> None:
@@ -78,16 +142,7 @@ def test_stop_hook_allows_blocker_escape_hatch(tmp_path) -> None:
     response = hook_mod.handle_stop(
         payload,
         config_root=tmp_path,
-        state_summary_fn=lambda _cwd: {
-            "strict_score": 81.0,
-            "scan_count": 2,
-            "scan_path": ".",
-            "review_prepare_command": "desloppify review --prepare --path .",
-            "stale_subjective_count": 0,
-            "unscored_subjective_count": 0,
-            "under_target_subjective_count": 3,
-            "open_review_count": 0,
-        },
+        state_summary_fn=lambda _cwd: _summary(strict=81.0, kind="blocked"),
     )
 
     assert response == {}
@@ -107,16 +162,7 @@ def test_stop_hook_allows_completion_once_target_and_review_fresh(tmp_path) -> N
     response = hook_mod.handle_stop(
         payload,
         config_root=tmp_path,
-        state_summary_fn=lambda _cwd: {
-            "strict_score": 95.6,
-            "scan_count": 3,
-            "scan_path": ".",
-            "review_prepare_command": "desloppify review --prepare --path .",
-            "stale_subjective_count": 0,
-            "unscored_subjective_count": 0,
-            "under_target_subjective_count": 0,
-            "open_review_count": 0,
-        },
+        state_summary_fn=lambda _cwd: _summary(strict=95.6, kind="done"),
     )
 
     assert "target met" in response["systemMessage"]
