@@ -7,7 +7,9 @@ from pathlib import Path
 import desloppify.app.commands.review.packet.build as packet_build_mod
 
 
-def test_build_run_batches_next_command_preserves_state_scope(tmp_path: Path) -> None:
+def test_build_run_batches_next_command_preserves_state_scope_and_path(
+    tmp_path: Path,
+) -> None:
     context = packet_build_mod.ReviewPacketContext(
         path=tmp_path,
         state_path=tmp_path / "alt-state.json",
@@ -19,6 +21,7 @@ def test_build_run_batches_next_command_preserves_state_scope(tmp_path: Path) ->
 
     command = packet_build_mod.build_run_batches_next_command(context)
 
+    assert f"--path {tmp_path}" in command
     assert "--state" in command
     assert str(tmp_path / "alt-state.json") in command
     assert "--no-retrospective" in command
@@ -36,6 +39,7 @@ def test_build_external_submit_next_command_preserves_state_scope(tmp_path: Path
 
     command = packet_build_mod.build_external_submit_next_command(context)
 
+    assert f"--path {tmp_path}" in command
     assert "--state" in command
     assert str(tmp_path / "alt-state.json") in command
     assert "--no-retrospective" in command
@@ -54,6 +58,47 @@ def test_prepared_packet_contract_includes_state_scope(tmp_path: Path) -> None:
     contract = packet_build_mod.prepared_packet_contract(context, config={})
 
     assert contract["state_path"] == str((tmp_path / "alt-state.json").resolve())
+
+
+def test_build_review_packet_payload_includes_prepared_packet_contract(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    context = packet_build_mod.ReviewPacketContext(
+        path=tmp_path / "repo",
+        state_path=tmp_path / "alt-state.json",
+        dimensions=["logic_clarity"],
+        retrospective=False,
+        retrospective_max_issues=30,
+        retrospective_max_batch_items=20,
+    )
+    expected_contract = packet_build_mod.prepared_packet_contract(
+        context,
+        config={"target_strict_score": 98, "noise_budget": 10},
+    )
+
+    monkeypatch.setattr(
+        packet_build_mod,
+        "build_holistic_packet",
+        lambda **_kwargs: (
+            {
+                "total_files": 1,
+                "investigation_batches": [{"dimensions": ["logic_clarity"]}],
+            },
+            "python",
+        ),
+    )
+
+    payload = packet_build_mod.build_review_packet_payload(
+        state={},
+        lang=object(),
+        config={"target_strict_score": 98, "noise_budget": 10},
+        context=context,
+        next_command="desloppify review --run-batches --path .",
+        setup_lang_fn=lambda *_args, **_kwargs: None,
+    )
+
+    assert payload["prepared_packet_contract"] == expected_contract
 
 
 def test_attach_plan_deferral_context_uses_plan_for_selected_state(

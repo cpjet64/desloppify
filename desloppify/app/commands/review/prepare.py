@@ -92,7 +92,7 @@ def _print_prepare_summary(
     print(colorize("\n  AGENT PLAN — pick the path matching your runner:", "yellow"))
     print(
         colorize(
-            "  1. Codex: `desloppify review --run-batches --runner codex --parallel --scan-after-import`",
+            f"  1. Codex: `{next_command}`",
             "dim",
         )
     )

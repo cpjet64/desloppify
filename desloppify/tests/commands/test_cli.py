@@ -17,8 +17,8 @@ from desloppify.app.commands.helpers.runtime_options import (
 )
 from desloppify.cli import (
     _get_detector_names,
-    _running_installed_package_from_checkout,
     _resolve_default_path,
+    _running_installed_package_from_checkout,
     _warn_if_running_installed_package_from_checkout,
     create_parser,
     state_path,
@@ -722,6 +722,89 @@ class TestResolveDefaultPath:
             _resolve_default_path(args)
 
         assert args.path == str(project_root.resolve())
+
+    def test_review_run_batches_prefers_prepared_query_path_over_saved_scan_path(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        project_root = tmp_path / "myproject"
+        project_root.mkdir()
+        prepared_query = {
+            "command": "review",
+            "mode": "holistic",
+            "investigation_batches": [{"name": "dependency_health"}],
+            "prepared_packet_contract": {
+                "path": str(project_root.resolve()),
+                "state_path": None,
+                "dimensions": [],
+                "retrospective": True,
+                "retrospective_max_issues": 30,
+                "retrospective_max_batch_items": 20,
+                "config_hash": "abc",
+            },
+        }
+
+        monkeypatch.setattr(cli_mod, "get_project_root", lambda: project_root)
+        monkeypatch.setattr(
+            cli_mod,
+            "load_query_result",
+            lambda: SimpleNamespace(ok=True, payload=prepared_query),
+        )
+
+        args = SimpleNamespace(
+            command="review",
+            path=None,
+            run_batches=True,
+            external_start=False,
+            state=None,
+        )
+        _resolve_default_path(args)
+
+        assert args.path == str(project_root.resolve())
+
+    def test_review_run_batches_falls_back_to_saved_scan_path_when_query_invalid(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        project_root = tmp_path / "myproject"
+        project_root.mkdir()
+        (project_root / "src").mkdir()
+        saved_state = {"scan_path": "src"}
+
+        monkeypatch.setattr(cli_mod, "get_project_root", lambda: project_root)
+        monkeypatch.setattr(
+            "desloppify.app.commands.helpers.state.get_project_root",
+            lambda: project_root,
+        )
+        monkeypatch.setattr(
+            cli_mod,
+            "load_query_result",
+            lambda: SimpleNamespace(
+                ok=True,
+                payload={
+                    "command": "review",
+                    "mode": "holistic",
+                    "investigation_batches": [{"name": "dependency_health"}],
+                },
+            ),
+        )
+
+        with (
+            patch("desloppify.cli.state_path", return_value=tmp_path / "state.json"),
+            patch("desloppify.cli.load_state", return_value=saved_state),
+        ):
+            args = SimpleNamespace(
+                command="review",
+                path=None,
+                run_batches=True,
+                external_start=False,
+                state=None,
+            )
+            _resolve_default_path(args)
+
+        assert args.path == str((project_root / "src").resolve())
 
     def test_review_falls_back_to_lang_default_when_no_scan_path(self, monkeypatch):
         """When state has no scan_path, review falls back to lang.default_src."""

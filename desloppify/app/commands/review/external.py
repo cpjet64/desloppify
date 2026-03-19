@@ -429,7 +429,8 @@ def do_external_start(args, state, lang, *, config: dict[str, Any] | None = None
 
     submit_cmd = (
         "desloppify review --external-submit "
-        f"--session-id {session_id} --import {output_path}"
+        f"--session-id {session_id} --import {output_path} "
+        f"--path {shlex.quote(str(getattr(args, 'path', '.') or '.'))}"
     )
     submit_with_scan_cmd = f"{submit_cmd} --scan-after-import"
     print(colorize("\n  External review session started.", "bold"))

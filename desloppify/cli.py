@@ -11,16 +11,17 @@ from pathlib import Path
 from typing import Any
 
 from desloppify.app.cli_support.parser import create_parser as _create_parser
-from desloppify.app.commands.helpers.lang import resolve_lang
 from desloppify.app.commands.helpers.command_runtime import CommandRuntime
+from desloppify.app.commands.helpers.lang import resolve_lang
+from desloppify.app.commands.helpers.query import load_query_result
 from desloppify.app.commands.helpers.state import state_path
 from desloppify.app.commands.registry import CommandHandler, get_command_handlers
 from desloppify.base.config import load_config
+from desloppify.base.discovery.paths import get_default_scan_path, get_project_root
 from desloppify.base.discovery.source import set_exclusions
 from desloppify.base.exception_sets import CommandError
 from desloppify.base.output.fallbacks import log_best_effort_failure
 from desloppify.base.output.terminal import colorize
-from desloppify.base.discovery.paths import get_default_scan_path, get_project_root
 from desloppify.base.registry import detector_names, on_detector_registered
 from desloppify.base.runtime_state import runtime_scope
 from desloppify.languages import available_langs
@@ -126,14 +127,19 @@ def _project_root_from_state_path(state_path_value: str | Path | None) -> Path |
 def _resolve_default_path(args: argparse.Namespace) -> None:
     """Fill args.path from detected language or default source path.
 
-    For the review command, the last scan path (stored in state) is used as the
-    default so that ``desloppify review --prepare`` works on the same scope as
-    the preceding scan even when the project files are not under ``src/``.
+    For review batch/external-start modes, prefer the prepared query packet's
+    contract path when available. Otherwise review falls back to the last scan
+    path so ``desloppify review --prepare`` works on the same scope as the
+    preceding scan even when project files are not under ``src/``.
     """
     if getattr(args, "path", None) is not None:
         return
     runtime_root = get_project_root()
     if getattr(args, "command", None) == "review":
+        prepared_path = _prepared_review_query_path(args)
+        if prepared_path is not None:
+            args.path = str(prepared_path)
+            return
         try:
             state_file = state_path(args)
             if state_file:
@@ -151,6 +157,54 @@ def _resolve_default_path(args: argparse.Namespace) -> None:
             default_src=lang.default_src if lang else None,
         )
     )
+
+
+def _review_uses_prepared_query_path(args: argparse.Namespace) -> bool:
+    """Return True when review mode should inherit scope from a prepared packet."""
+    return bool(
+        getattr(args, "run_batches", False)
+        or getattr(args, "external_start", False)
+    )
+
+
+def _prepared_review_query_path(args: argparse.Namespace) -> Path | None:
+    """Return prepared review packet path when the current args can safely reuse it."""
+    if not _review_uses_prepared_query_path(args):
+        return None
+    result = load_query_result()
+    if not result.ok or not isinstance(result.payload, dict):
+        return None
+
+    payload = result.payload
+    if payload.get("command") != "review" or payload.get("mode") != "holistic":
+        return None
+    batches = payload.get("investigation_batches")
+    if not isinstance(batches, list) or not batches:
+        return None
+
+    contract = payload.get("prepared_packet_contract")
+    if not isinstance(contract, dict):
+        return None
+
+    explicit_state = getattr(args, "state", None)
+    contract_state = contract.get("state_path")
+    if explicit_state:
+        try:
+            expected_state = str(Path(explicit_state).resolve())
+        except OSError:
+            expected_state = str(Path(explicit_state))
+        if contract_state != expected_state:
+            return None
+    elif contract_state is not None:
+        return None
+
+    raw_path = contract.get("path")
+    if not isinstance(raw_path, str) or not raw_path.strip():
+        return None
+    prepared_path = Path(raw_path)
+    if not prepared_path.exists():
+        return None
+    return prepared_path.resolve()
 
 
 def _load_shared_runtime(args: argparse.Namespace) -> None:

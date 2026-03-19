@@ -42,6 +42,8 @@ class ReviewPacketContext:
 
 def resolve_review_packet_context(args: Any) -> ReviewPacketContext:
     """Parse shared packet options from CLI args."""
+    path_arg = getattr(args, "path", ".") or "."
+    state_arg = getattr(args, "state", None)
     dims = parse_dimensions(args)
     dimensions = list(dims) if dims else None
     retrospective = bool(getattr(args, "retrospective", True))
@@ -56,12 +58,8 @@ def resolve_review_packet_context(args: Any) -> ReviewPacketContext:
         minimum=1,
     )
     return ReviewPacketContext(
-        path=Path(getattr(args, "path", ".") or "."),
-        state_path=(
-            Path(getattr(args, "state"))
-            if getattr(args, "state", None)
-            else None
-        ),
+        path=Path(path_arg),
+        state_path=Path(state_arg) if state_arg else None,
         dimensions=dimensions,
         retrospective=retrospective,
         retrospective_max_issues=retrospective_max_issues,
@@ -152,6 +150,7 @@ def build_run_batches_next_command(context: ReviewPacketContext) -> str:
         "--parallel",
         "--scan-after-import",
     ]
+    parts.extend(["--path", str(context.path)])
     if context.state_path is not None:
         parts.extend(["--state", str(context.state_path)])
     if context.dimensions:
@@ -196,6 +195,7 @@ def build_external_submit_next_command(context: ReviewPacketContext) -> str:
         "--import",
         "<file>",
     ]
+    parts.extend(["--path", str(context.path)])
     if context.state_path is not None:
         parts.extend(["--state", str(context.state_path)])
     if not context.retrospective:
@@ -235,6 +235,10 @@ def build_review_packet_payload(
         prepare_holistic_review_fn=prepare_holistic_review_fn,
     )
     packet["config"] = redacted_review_config(config)
+    packet["prepared_packet_contract"] = prepared_packet_contract(
+        context,
+        config=config,
+    )
     packet["next_command"] = next_command
     require_non_empty_packet(packet, path=context.path)
     return packet
