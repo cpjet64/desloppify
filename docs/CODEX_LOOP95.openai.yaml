@@ -1,0 +1,7 @@
+interface:
+  display_name: "Desloppify Loop95"
+  short_description: "Raise strict score to 95 with a persistent fix loop."
+  default_prompt: "Use $desloppify-loop95 to inspect the current repo state, run `desloppify scan --path .`, refresh review if needed with `desloppify review --run-batches --runner codex --parallel --scan-after-import`, and keep looping on `desloppify next`, fixing, resolving, rescanning, and checking `desloppify status` until strict >= 95.0."
+
+policy:
+  allow_implicit_invocation: false

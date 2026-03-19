@@ -72,6 +72,21 @@ def test_update_skill_helper_functions_cover_frontmatter_resolution_and_replace(
     assert "new section" in replaced
     assert "old" not in replaced
 
+    assert (
+        update_skill_cmd_mod._optional_metadata_filename(
+            overlay_name="CODEX_LOOP95",
+            dedicated=True,
+        )
+        == "CODEX_LOOP95.openai.yaml"
+    )
+    assert (
+        update_skill_cmd_mod._optional_metadata_filename(
+            overlay_name="CODEX",
+            dedicated=False,
+        )
+        is None
+    )
+
 
 def test_resolve_interface_prefers_explicit_then_install_metadata(monkeypatch) -> None:
     assert update_skill_cmd_mod.resolve_interface("CoDeX") == "codex"
@@ -122,11 +137,14 @@ def test_update_installed_skill_handles_download_and_shared_file_write(
     target.parent.mkdir(parents=True)
     target.write_text("prefix only", encoding="utf-8")
 
-    monkeypatch.setattr(
-        update_skill_cmd_mod,
-        "_download",
-        lambda filename: skill_content if filename == "SKILL.md" else overlay_content,
-    )
+    def _download(filename: str) -> str:
+        if filename == "SKILL.md":
+            return skill_content
+        if filename == "CODEX.md":
+            return overlay_content
+        raise KeyError(filename)
+
+    monkeypatch.setattr(update_skill_cmd_mod, "_download", _download)
     monkeypatch.setattr(update_skill_cmd_mod, "get_project_root", lambda: tmp_path)
     monkeypatch.setattr(update_skill_cmd_mod, "_get_home_path", lambda: tmp_path)
     monkeypatch.setattr(
@@ -141,6 +159,7 @@ def test_update_installed_skill_handles_download_and_shared_file_write(
     written = target.read_text(encoding="utf-8")
     assert written.startswith("---\nname: desloppify\n---\n")
     assert "overlay text" in written
+    assert not (target.parent / "agents" / "openai.yaml").exists()
     out = capsys.readouterr().out
     assert "Updated .codex/skills/desloppify/SKILL.md" in out
     assert (
@@ -171,13 +190,27 @@ def test_update_installed_skill_supports_codex_loop95_target(
         "---\n"
         "loop95 overlay\n"
     )
-    target = tmp_path / ".codex" / "skills" / "desloppify-loop95" / "SKILL.md"
-
-    monkeypatch.setattr(
-        update_skill_cmd_mod,
-        "_download",
-        lambda filename: skill_content if filename == "SKILL.md" else overlay_content,
+    metadata_content = (
+        "interface:\n"
+        '  display_name: "Desloppify Loop95"\n'
+        '  short_description: "Raise strict score to 95 with a persistent fix loop."\n'
+        '  default_prompt: "Use $desloppify-loop95 to inspect the current repo state, run `desloppify scan --path .`, refresh review if needed, and keep looping until strict >= 95.0."\n'
+        "policy:\n"
+        "  allow_implicit_invocation: false\n"
     )
+    target = tmp_path / ".codex" / "skills" / "desloppify-loop95" / "SKILL.md"
+    metadata_path = target.parent / "agents" / "openai.yaml"
+
+    def _download(filename: str) -> str:
+        if filename == "SKILL.md":
+            return skill_content
+        if filename == "CODEX_LOOP95.md":
+            return overlay_content
+        if filename == "CODEX_LOOP95.openai.yaml":
+            return metadata_content
+        raise KeyError(filename)
+
+    monkeypatch.setattr(update_skill_cmd_mod, "_download", _download)
     monkeypatch.setattr(update_skill_cmd_mod, "get_project_root", lambda: tmp_path)
     monkeypatch.setattr(update_skill_cmd_mod, "_get_home_path", lambda: tmp_path)
     monkeypatch.setattr(
@@ -192,8 +225,62 @@ def test_update_installed_skill_supports_codex_loop95_target(
     assert written.startswith("---\nname: desloppify-loop95\n")
     assert "loop95 overlay" in written
     assert "name: desloppify\n" not in written
+    metadata = metadata_path.read_text(encoding="utf-8")
+    assert 'display_name: "Desloppify Loop95"' in metadata
+    assert "$desloppify-loop95" in metadata
+    assert "allow_implicit_invocation: false" in metadata
     out = capsys.readouterr().out
     assert "Updated .codex/skills/desloppify-loop95/SKILL.md" in out
+
+
+def test_update_installed_skill_supports_project_scoped_codex_loop95_metadata(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    skill_content = (
+        "<!-- desloppify-begin -->\n"
+        f"<!-- desloppify-skill-version: {update_skill_cmd_mod.SKILL_VERSION} -->\n"
+        "body\n"
+        "<!-- desloppify-end -->\n"
+    )
+    overlay_content = "loop95 overlay\n"
+    metadata_content = (
+        "interface:\n"
+        '  display_name: "Desloppify Loop95"\n'
+        '  short_description: "Raise strict score to 95 with a persistent fix loop."\n'
+        '  default_prompt: "Use $desloppify-loop95 to inspect the current repo state and keep looping until strict >= 95.0."\n'
+        "policy:\n"
+        "  allow_implicit_invocation: false\n"
+    )
+
+    def _download(filename: str) -> str:
+        if filename == "SKILL.md":
+            return skill_content
+        if filename == "CODEX_LOOP95.md":
+            return overlay_content
+        if filename == "CODEX_LOOP95.openai.yaml":
+            return metadata_content
+        raise KeyError(filename)
+
+    monkeypatch.setattr(update_skill_cmd_mod, "_download", _download)
+    monkeypatch.setattr(update_skill_cmd_mod, "get_project_root", lambda: tmp_path)
+    monkeypatch.setattr(update_skill_cmd_mod, "_get_home_path", lambda: tmp_path)
+    monkeypatch.setattr(
+        update_skill_cmd_mod,
+        "safe_write_text",
+        lambda path, text: path.write_text(text, encoding="utf-8"),
+    )
+    monkeypatch.setattr(update_skill_cmd_mod, "colorize", lambda text, _style: text)
+
+    assert update_skill_cmd_mod.update_installed_skill("codex_loop95", scope="project") is True
+    assert (
+        tmp_path
+        / ".agents"
+        / "skills"
+        / "desloppify-loop95"
+        / "agents"
+        / "openai.yaml"
+    ).is_file()
 
 
 def test_cmd_update_skill_handles_missing_and_ambiguous_installs(monkeypatch, capsys) -> None:

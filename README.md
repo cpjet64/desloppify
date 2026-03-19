@@ -63,6 +63,8 @@ If you want Codex to keep going until `strict >= 95` is explicitly satisfied, in
 python3 -m desloppify update-skill codex_loop95
 ```
 
+That installs `~/.codex/skills/desloppify-loop95/SKILL.md` plus `~/.codex/skills/desloppify-loop95/agents/openai.yaml`, so explicit `$desloppify-loop95` invocation starts with a real loop prompt instead of just adding passive instructions.
+
 ### Claude prompt
 
 ```text

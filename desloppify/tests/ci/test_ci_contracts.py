@@ -17,6 +17,8 @@ CI_PLAN = REPO_ROOT / "dev" / "ci_plan.md"
 MAKEFILE = REPO_ROOT / "Makefile"
 README = REPO_ROOT / "README.md"
 SKILL_DOC = REPO_ROOT / "docs" / "SKILL.md"
+CODEX_LOOP95_DOC = REPO_ROOT / "docs" / "CODEX_LOOP95.md"
+CODEX_LOOP95_METADATA = REPO_ROOT / "docs" / "CODEX_LOOP95.openai.yaml"
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 SKILL_DOCS_IMPL = REPO_ROOT / "desloppify" / "app" / "skill_docs.py"
 
@@ -185,9 +187,24 @@ def test_git_install_guidance_uses_force_reinstall_from_fork_main() -> None:
 def test_codex_loop95_skill_guidance_is_documented() -> None:
     readme = README.read_text()
     skill_doc = SKILL_DOC.read_text()
+    loop_doc = CODEX_LOOP95_DOC.read_text()
     assert "desloppify update-skill codex_loop95" in readme
     assert "desloppify update-skill codex_loop95" in skill_doc
     assert "~/.codex/skills/desloppify-loop95/SKILL.md" in skill_doc
+    assert "agents/openai.yaml" in readme
+    assert "agents/openai.yaml" in skill_doc
+    assert "agents/openai.yaml" in loop_doc
+
+
+def test_codex_loop95_openai_metadata_contract() -> None:
+    data = _load_yaml(CODEX_LOOP95_METADATA)
+    interface = data["interface"]
+    policy = data["policy"]
+
+    assert interface["display_name"] == "Desloppify Loop95"
+    assert "$desloppify-loop95" in interface["default_prompt"]
+    assert "strict >= 95.0" in interface["default_prompt"]
+    assert policy["allow_implicit_invocation"] is False
 
 
 def test_skill_version_marker_matches_runtime_constant() -> None:

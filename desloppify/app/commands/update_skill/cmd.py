@@ -97,6 +97,27 @@ def _build_section(skill_content: str, overlay_content: str | None) -> str:
     return body + ("\n" if body else "")
 
 
+def _optional_metadata_filename(*, overlay_name: str | None, dedicated: bool) -> str | None:
+    """Return the optional metadata asset filename for a dedicated skill target."""
+    if not dedicated or not overlay_name:
+        return None
+    return f"{overlay_name}.openai.yaml"
+
+
+def _download_optional_asset(filename: str | None, download_fn) -> str | None:
+    """Best-effort download for optional skill assets.
+
+    Optional metadata should never block the main skill install. Missing files
+    and transient fetch failures fall back to no metadata.
+    """
+    if not filename:
+        return None
+    try:
+        return download_fn(filename)
+    except (urllib.error.URLError, OSError, KeyError):
+        return None
+
+
 _FRONTMATTER_FIRST_INTERFACES = frozenset({"amp", "codex", "codex_loop95"})
 
 
@@ -239,6 +260,14 @@ def _update_installed_skill_with_deps(
         print(colorize_fn("Downloaded content doesn't look like a skill document.", "red"))
         return False
 
+    metadata_content = _download_optional_asset(
+        _optional_metadata_filename(
+            overlay_name=target.overlay_name,
+            dedicated=target.dedicated,
+        ),
+        download_fn,
+    )
+
     new_section = _build_section(skill_content, overlay_content)
     if interface in _FRONTMATTER_FIRST_INTERFACES:
         new_section = _ensure_frontmatter_first(new_section)
@@ -253,6 +282,10 @@ def _update_installed_skill_with_deps(
         result = new_section
 
     safe_write_text_fn(target_path, result)
+    if metadata_content is not None:
+        metadata_path = target_path.parent / "agents" / "openai.yaml"
+        metadata_path.parent.mkdir(parents=True, exist_ok=True)
+        safe_write_text_fn(metadata_path, metadata_content.rstrip() + "\n")
 
     version_match = SKILL_VERSION_RE.search(new_section)
     version = version_match.group(1) if version_match else "?"
