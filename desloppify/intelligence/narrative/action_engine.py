@@ -143,7 +143,12 @@ def compute_actions(ctx: ActionContext) -> list[ActionItem]:
 
     _append_auto_fix_actions(actions, ctx.by_detector, supported, impact_for, ctx.state)
     _append_reorganize_actions(actions, ctx.by_detector, impact_for)
-    _append_refactor_actions(actions, ctx.by_detector, impact_for)
+    _append_refactor_actions(
+        actions,
+        ctx.by_detector,
+        impact_for,
+        scan_path=str(ctx.state.get("scan_path", "") or "").strip() or None,
+    )
     _append_debt_action(actions, ctx.debt)
 
     prioritized = _assign_priorities(actions)

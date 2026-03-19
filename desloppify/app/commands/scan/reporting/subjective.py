@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from desloppify.base.config import DEFAULT_TARGET_STRICT_SCORE, coerce_target_score
+from desloppify.base.review_commands import build_review_prepare_command
 from desloppify.engine._scoring.subjective.core import DISPLAY_NAMES
 from desloppify.intelligence import integrity as subjective_integrity_mod
 
@@ -79,6 +80,7 @@ def subjective_rerun_command(
     items: list[dict],
     *,
     max_items: int = 5,
+    scan_path: str | None = None,
     refresh: bool = True,
     has_prior_review: bool | None = None,
 ) -> str:
@@ -94,22 +96,15 @@ def subjective_rerun_command(
 
     dim_keys = flatten_cli_keys(items, max_items=max_items)
 
-    # If no evidence of prior runner usage, suggest --prepare first
-    if has_prior_review is False:
-        command_parts = ["desloppify", "review", "--prepare"]
-        if dim_keys:
-            command_parts.extend(["--dimensions", dim_keys])
-        return f"`{' '.join(command_parts)}`"
-
-    command_parts = [
-        "desloppify",
-        "review",
-        "--prepare",
-        "--force-review-rerun",
-    ]
-    if dim_keys:
-        command_parts.extend(["--dimensions", dim_keys])
-    return f"`{' '.join(command_parts)}`"
+    return (
+        "`"
+        + build_review_prepare_command(
+            scan_path=scan_path,
+            dimensions=dim_keys.split(",") if dim_keys else None,
+            force_review_rerun=has_prior_review is not False,
+        )
+        + "`"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -157,6 +152,7 @@ def _integrity_notice_for_explicit_status(
     target_display: float,
     subjective_entries: list[dict],
     max_items: int,
+    scan_path: str | None = None,
 ) -> dict[str, object] | None:
     if status == "penalized" and reset_keys:
         reset_entries = subjective_entries_for_dimension_keys(
@@ -169,7 +165,11 @@ def _integrity_notice_for_explicit_status(
             "target": target_display,
             "entries": reset_entries,
             "rendered": render_subjective_names(reset_entries),
-            "command": subjective_rerun_command(reset_entries, max_items=max_items),
+            "command": subjective_rerun_command(
+                reset_entries,
+                max_items=max_items,
+                scan_path=scan_path,
+            ),
         }
     if status == "warn" and matched_keys:
         matched_entries = subjective_entries_for_dimension_keys(
@@ -182,7 +182,11 @@ def _integrity_notice_for_explicit_status(
             "target": target_display,
             "entries": matched_entries,
             "rendered": render_subjective_names(matched_entries),
-            "command": subjective_rerun_command(matched_entries, max_items=max_items),
+            "command": subjective_rerun_command(
+                matched_entries,
+                max_items=max_items,
+                scan_path=scan_path,
+            ),
         }
     return None
 
@@ -212,6 +216,7 @@ def subjective_integrity_followup(
     *,
     threshold: float = DEFAULT_TARGET_STRICT_SCORE,
     max_items: int = 5,
+    scan_path: str | None = None,
 ) -> dict[str, object] | None:
     threshold_value = coerce_target_score(threshold)
     raw_integrity_state = state.get("subjective_integrity")
@@ -231,6 +236,7 @@ def subjective_integrity_followup(
         target_display=target_display,
         subjective_entries=subjective_entries,
         max_items=max_items,
+        scan_path=scan_path,
     )
     if explicit_notice is not None:
         return explicit_notice
@@ -248,7 +254,11 @@ def subjective_integrity_followup(
         "target": threshold_value,
         "entries": at_target,
         "rendered": render_subjective_names(at_target),
-        "command": subjective_rerun_command(at_target, max_items=max_items),
+        "command": subjective_rerun_command(
+            at_target,
+            max_items=max_items,
+            scan_path=scan_path,
+        ),
     }
 
 
@@ -383,6 +393,7 @@ def build_subjective_followup(
     threshold: float = DEFAULT_TARGET_STRICT_SCORE,
     max_quality_items: int = 3,
     max_integrity_items: int = 5,
+    scan_path: str | None = None,
 ) -> SubjectiveFollowup:
     threshold_value = coerce_target_score(threshold)
     threshold_label = f"{threshold_value:.1f}".rstrip("0").rstrip(".")
@@ -396,15 +407,18 @@ def build_subjective_followup(
         key=lambda entry: float(entry.get("strict", entry.get("score", 100.0))),
     )
     rendered = render_subjective_scores(low_assessed, max_items=max_quality_items)
+    resolved_scan_path = scan_path or str(state.get("scan_path", "") or "").strip() or None
     command = subjective_rerun_command(
         low_assessed,
         max_items=max_quality_items,
+        scan_path=resolved_scan_path,
     )
     integrity_notice = subjective_integrity_followup(
         state,
         subjective_entries,
         threshold=threshold_value,
         max_items=max_integrity_items,
+        scan_path=resolved_scan_path,
     )
     integrity_lines = subjective_integrity_notice_lines(
         integrity_notice,

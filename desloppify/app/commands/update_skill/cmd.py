@@ -16,14 +16,13 @@ from desloppify.app.skill_docs import (
     SKILL_VERSION_RE,
     SkillInstall,
     SkillScope,
-    find_installed_skill,
     find_installed_skills,
     get_default_scope,
     get_skill_target,
 )
-from desloppify.base.exception_sets import CommandError
 from desloppify.base.discovery.file_paths import safe_write_text
 from desloppify.base.discovery.paths import get_project_root
+from desloppify.base.exception_sets import CommandError
 from desloppify.base.output.terminal import colorize
 
 _RAW_BASE = "https://raw.githubusercontent.com/cpjet64/desloppify/main/docs"
@@ -142,6 +141,8 @@ def resolve_interface(
         return install.overlay.lower()
     if install is not None and install.interface:
         return install.interface.lower()
+    if install is not None:
+        return None
 
     detected = installs if installs is not None else find_installed_skills()
     if active_interface:

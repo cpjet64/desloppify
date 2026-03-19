@@ -8,9 +8,26 @@ from __future__ import annotations
 
 from typing import Any
 
-from desloppify.engine.plan_triage import TRIAGE_STAGE_SPECS
+from desloppify.base.review_commands import build_review_prepare_command
+from desloppify.engine._plan.constants import (
+    confirmed_triage_stage_names,
+    recorded_unconfirmed_triage_stage_names,
+)
+from desloppify.engine._plan.refresh_lifecycle import (
+    LIFECYCLE_PHASE_REVIEW_INITIAL,
+    LIFECYCLE_PHASE_TRIAGE,
+    LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
+    LIFECYCLE_PHASE_WORKFLOW,
+    LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT,
+    current_lifecycle_phase,
+    subjective_review_completed_for_scan,
+)
+from desloppify.engine._plan.triage.snapshot import build_triage_snapshot
 from desloppify.engine._scoring.subjective.core import DISPLAY_NAMES
-from desloppify.engine._state.issue_semantics import is_review_work_item, is_triage_finding
+from desloppify.engine._state.issue_semantics import (
+    is_review_work_item,
+    is_triage_finding,
+)
 from desloppify.engine._state.schema import StateModel
 from desloppify.engine._work_queue.helpers import (
     detail_dict,
@@ -25,24 +42,11 @@ from desloppify.engine._work_queue.synthetic_workflow import (
     build_score_checkpoint_item,
 )
 from desloppify.engine._work_queue.types import WorkQueueItem
-from desloppify.engine._plan.constants import (
-    confirmed_triage_stage_names,
-    recorded_unconfirmed_triage_stage_names,
-)
-from desloppify.engine._plan.triage.snapshot import build_triage_snapshot
-from desloppify.engine._plan.refresh_lifecycle import (
-    LIFECYCLE_PHASE_REVIEW_INITIAL,
-    LIFECYCLE_PHASE_TRIAGE,
-    LIFECYCLE_PHASE_TRIAGE_POSTFLIGHT,
-    LIFECYCLE_PHASE_WORKFLOW,
-    LIFECYCLE_PHASE_WORKFLOW_POSTFLIGHT,
-    current_lifecycle_phase,
-    subjective_review_completed_for_scan,
-)
 from desloppify.engine.plan_triage import (
     TRIAGE_IDS,
     TRIAGE_STAGE_DEPENDENCIES,
     TRIAGE_STAGE_LABELS,
+    TRIAGE_STAGE_SPECS,
     triage_manual_stage_command,
     triage_run_stages_command,
     triage_runner_commands,
@@ -283,12 +287,11 @@ def build_subjective_items(
         *,
         force_review_rerun: bool = False,
     ) -> str:
-        command = "desloppify review --prepare"
-        if cli_keys:
-            command += " --dimensions " + ",".join(cli_keys)
-        if force_review_rerun:
-            command += " --force-review-rerun"
-        return command
+        return build_review_prepare_command(
+            scan_path=str(state.get("scan_path", "") or "").strip() or None,
+            dimensions=cli_keys,
+            force_review_rerun=force_review_rerun,
+        )
 
     for entry in subjective_entries:
         name = str(entry.get("name", "")).strip()

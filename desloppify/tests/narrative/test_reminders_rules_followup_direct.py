@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import UTC
+from datetime import UTC, timedelta
 from datetime import datetime as _dt
-from datetime import timedelta
 
 import desloppify.intelligence.narrative.reminders_rules_followup as followup_mod
 
 
 def test_review_queue_reminders_includes_pending_rereview_and_review_not_run() -> None:
     state = {
+        "scan_path": "src",
         "subjective_assessments": {"naming": {"score": 70}},
         "review_cache": {},
     }
@@ -32,6 +32,9 @@ def test_review_queue_reminders_includes_pending_rereview_and_review_not_run() -
 
     types = {r["type"] for r in reminders}
     assert {"review_issues_pending", "rereview_needed", "review_not_run"} <= types
+    for reminder in reminders:
+        if reminder["type"] in {"rereview_needed", "review_not_run"}:
+            assert "--path src" in reminder["command"]
 
 
 def test_stale_assessment_reminder_requires_no_open_issues() -> None:
@@ -44,6 +47,7 @@ def test_stale_assessment_reminder_requires_no_open_issues() -> None:
     assert followup_mod._stale_assessment_reminder(state_with_open) == []
 
     state_closed = {
+        "scan_path": "src",
         "issues": {"i": {"status": "fixed", "suppressed": False}},
         "subjective_assessments": {
             "naming": {"needs_review_refresh": True},
@@ -52,12 +56,14 @@ def test_stale_assessment_reminder_requires_no_open_issues() -> None:
     }
     reminders = followup_mod._stale_assessment_reminder(state_closed)
     assert reminders and reminders[0]["type"] == "stale_assessments"
+    assert "--path src" in reminders[0]["command"]
     assert "naming,error_handling" in reminders[0]["command"]
 
 
 def test_review_staleness_reminder_handles_old_and_invalid_timestamps(monkeypatch) -> None:
     old = (_dt.now(UTC) - timedelta(days=45)).isoformat()
     state = {
+        "scan_path": "src",
         "review_cache": {
             "files": {
                 "a.py": {"reviewed_at": old},
@@ -67,6 +73,7 @@ def test_review_staleness_reminder_handles_old_and_invalid_timestamps(monkeypatc
 
     reminders = followup_mod._review_staleness_reminder(state, {"review_max_age_days": 30})
     assert reminders and reminders[0]["type"] == "review_stale"
+    assert "--path src" in reminders[0]["command"]
 
     called = {"count": 0}
 

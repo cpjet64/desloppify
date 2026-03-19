@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 
+from desloppify.app.skill_docs import find_installed_skill as _find_installed_skill
+
 from . import cmd as _cmd
 
 SKILL_BEGIN = _cmd.SKILL_BEGIN
@@ -22,7 +24,7 @@ _build_section = _cmd._build_section
 _ensure_frontmatter_first = _cmd._ensure_frontmatter_first
 _replace_section = _cmd._replace_section
 
-find_installed_skill = _cmd.find_installed_skill
+find_installed_skill = _find_installed_skill
 find_installed_skills = _cmd.find_installed_skills
 get_project_root = _cmd.get_project_root
 resolve_scope = _cmd.resolve_scope

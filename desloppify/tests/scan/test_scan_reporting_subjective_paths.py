@@ -53,6 +53,18 @@ def test_subjective_rerun_command_builds_dimension_and_holistic_variants():
     )
 
 
+def test_subjective_rerun_command_includes_scan_path_when_provided():
+    command = scan_reporting_dimensions_mod.subjective_rerun_command(
+        [{"cli_keys": ["naming_quality", "logic_clarity"]}],
+        max_items=5,
+        scan_path="src",
+    )
+    assert (
+        command
+        == "`desloppify review --prepare --path src --force-review-rerun --dimensions naming_quality,logic_clarity`"
+    )
+
+
 def test_subjective_rerun_command_prefers_open_review_queue_when_issues_exist():
     command = scan_reporting_dimensions_mod.subjective_rerun_command(
         [{"cli_keys": ["naming_quality"], "failing": 2}],
@@ -207,7 +219,7 @@ def test_show_subjective_paths_shows_target_match_reset_warning(monkeypatch, cap
     assert "were reset to 0.0 this scan" in out
     assert "Anti-gaming safeguard applied" in out
     assert (
-        "review --prepare --force-review-rerun --dimensions naming_quality,logic_clarity"
+        "review --prepare --path . --force-review-rerun --dimensions naming_quality,logic_clarity"
         in out
     )
 

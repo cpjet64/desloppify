@@ -32,12 +32,18 @@ def _issue(
     }
 
 
-def _state(issues: list[dict], *, dimension_scores: dict | None = None) -> dict:
+def _state(
+    issues: list[dict],
+    *,
+    dimension_scores: dict | None = None,
+    scan_path: str | None = None,
+) -> dict:
     work_items = {f["id"]: f for f in issues}
     return {
         "work_items": work_items,
         "issues": work_items,
         "dimension_scores": dimension_scores or {},
+        "scan_path": scan_path,
     }
 
 
@@ -335,6 +341,28 @@ def test_holistic_subjective_review_issue_points_to_holistic_refresh():
     queue = build_work_queue(state, count=None, include_subjective=False)
     item = queue["items"][0]
     assert item["primary_command"] == "desloppify review --prepare"
+
+
+def test_subjective_review_commands_preserve_scan_path():
+    state = _state(
+        [
+            _issue(
+                "subjective_review::.::naming_quality",
+                detector="subjective_review",
+                file=".",
+                tier=4,
+                detail={"reason": "unassessed", "dimension": "naming_quality"},
+            )
+        ],
+        scan_path="src",
+    )
+
+    queue = build_work_queue(state, count=None, include_subjective=False)
+    item = queue["items"][0]
+    assert (
+        item["primary_command"]
+        == "desloppify review --prepare --path src --dimensions naming_quality"
+    )
 
 
 # ── QueueBuildOptions defaults ────────────────────────────

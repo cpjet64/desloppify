@@ -16,6 +16,7 @@ PUBLISH_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "python-publish.yml"
 CI_PLAN = REPO_ROOT / "dev" / "ci_plan.md"
 MAKEFILE = REPO_ROOT / "Makefile"
 README = REPO_ROOT / "README.md"
+SKILL_DOC = REPO_ROOT / "docs" / "SKILL.md"
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 
 
@@ -165,6 +166,19 @@ def test_full_extra_includes_all_optional_dependency_groups() -> None:
         "Optional extras must stay represented in [full] so README install guidance "
         f"does not drift: {missing_dependencies}"
     )
+
+
+def test_git_install_guidance_uses_force_reinstall_from_fork_main() -> None:
+    readme = README.read_text()
+    skill_doc = SKILL_DOC.read_text()
+    expected_pip = (
+        'python3 -m pip install --force-reinstall "desloppify[full] @ '
+        'git+https://github.com/cpjet64/desloppify.git@main"'
+    )
+    assert expected_pip in readme
+    assert expected_pip in skill_doc
+    assert "pip install desloppify[full]" not in skill_doc
+    assert "uvx --from git+https://github.com/cpjet64/desloppify.git@main desloppify" in skill_doc
 
 
 def test_ci_plan_required_checks_match_ci_workflow() -> None:

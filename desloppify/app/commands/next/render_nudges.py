@@ -15,6 +15,7 @@ from desloppify.app.commands.scan.reporting.subjective import (
 from desloppify.base.config import load_config
 from desloppify.base.output.terminal import colorize, log
 from desloppify.base.output.user_message import print_user_message
+from desloppify.base.review_commands import build_review_prepare_command
 from desloppify.engine._scoring.results.core import compute_health_breakdown
 from desloppify.engine._state.issue_semantics import is_assessment_request
 from desloppify.engine._work_queue.core import ATTEST_EXAMPLE
@@ -161,7 +162,11 @@ def _render_live_queue_block(
 
 
 
-def _render_subjective_bottleneck(dim_scores: dict) -> None:
+def _render_subjective_bottleneck(
+    dim_scores: dict,
+    *,
+    scan_path: str | None = None,
+) -> None:
     try:
         health_breakdown = compute_health_breakdown(dim_scores)
         subjective_drag = sum(
@@ -181,9 +186,10 @@ def _render_subjective_bottleneck(dim_scores: dict) -> None:
             f"(-{subjective_drag:.0f} pts vs -{mechanical_drag:.0f} pts mechanical).",
             "yellow",
         ))
+        prepare_command = build_review_prepare_command(scan_path=scan_path)
         print(colorize(
             "  Code fixes alone won't close the gap — run "
-            "`desloppify review --prepare` and follow your "
+            f"`{prepare_command}` and follow your "
             "skill doc's review workflow to re-score.",
             "yellow",
         ))
@@ -264,7 +270,10 @@ def render_followup_nudges(
     # on what to work on next; no need to distract with subjective advice.
     objective_remaining = breakdown.objective_actionable if breakdown else queue_total
     if strict_score is not None and dim_scores and objective_remaining <= 0:
-        _render_subjective_bottleneck(dim_scores)
+        _render_subjective_bottleneck(
+            dim_scores,
+            scan_path=str(state.get("scan_path", "") or "").strip() or None,
+        )
 
     # Integrity penalty/warn lines preserved (anti-gaming safeguard, must remain visible).
     for style, message in followup.integrity_lines:

@@ -16,7 +16,11 @@ def _plan_with_queue(*ids: str) -> dict:
     return plan
 
 
-def _state_with_stale_dimensions(*dim_keys: str, score: float = 50.0) -> dict:
+def _state_with_stale_dimensions(
+    *dim_keys: str,
+    score: float = 50.0,
+    scan_path: str | None = None,
+) -> dict:
     """Build a minimal state with stale subjective dimensions."""
     dim_scores: dict = {}
     assessments: dict = {}
@@ -44,6 +48,7 @@ def _state_with_stale_dimensions(*dim_keys: str, score: float = 50.0) -> dict:
         "work_items": work_items,
         "issues": work_items,
         "scan_count": 5,
+        "scan_path": scan_path,
         "dimension_scores": dim_scores,
         "subjective_assessments": assessments,
     }
@@ -512,6 +517,24 @@ def test_stale_cluster_deleted_when_fresh():
 
     auto_cluster_issues(plan, state)
     assert "auto/stale-review" not in plan["clusters"]
+
+
+def test_stale_cluster_action_preserves_scan_path():
+    from desloppify.engine._plan.auto_cluster import auto_cluster_issues
+
+    plan = _plan_with_queue(
+        "subjective::design_coherence",
+        "subjective::error_consistency",
+    )
+    state = _state_with_stale_dimensions(
+        "design_coherence",
+        "error_consistency",
+        scan_path="src",
+    )
+
+    auto_cluster_issues(plan, state)
+    cluster = plan["clusters"]["auto/stale-review"]
+    assert cluster["action"].startswith("desloppify review --prepare --path src")
 
 
 def test_stale_cluster_updated():

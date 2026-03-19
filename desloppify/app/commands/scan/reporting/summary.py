@@ -14,6 +14,7 @@ from desloppify.app.commands.status.strict_target import (
 )
 from desloppify.base.output.fallbacks import log_best_effort_failure
 from desloppify.base.output.terminal import colorize
+from desloppify.base.review_commands import build_review_prepare_command
 from desloppify.engine._concerns.generators import generate_concerns
 from desloppify.engine._state.schema import StateModel
 
@@ -121,7 +122,17 @@ def _unscored_subjective_callout(state: StateModel) -> None:
     if unscored_subj == 0 or total_subj == 0:
         return
 
-    print(colorize(_unscored_subjective_message(dim_scores, total_subj, unscored_subj), "yellow"))
+    print(
+        colorize(
+            _unscored_subjective_message(
+                dim_scores,
+                total_subj,
+                unscored_subj,
+                scan_path=str(state.get("scan_path", "") or "").strip() or None,
+            ),
+            "yellow",
+        )
+    )
 
 
 def _subjective_unscored_counts(dim_scores: dict[str, Any]) -> tuple[int, int]:
@@ -154,6 +165,8 @@ def _unscored_subjective_message(
     dim_scores: dict[str, Any],
     total_subj: int,
     unscored_subj: int,
+    *,
+    scan_path: str | None = None,
 ) -> str:
     if unscored_subj != total_subj:
         return (
@@ -172,7 +185,8 @@ def _unscored_subjective_message(
             f"The strict score currently reflects only mechanical detectors "
             f"({100 - subj_pct}% of score weight). "
         )
-    return msg + "Run `desloppify review --prepare` to assess."
+    prepare_command = build_review_prepare_command(scan_path=scan_path)
+    return msg + f"Run `{prepare_command}` to assess."
 
 
 def _print_score_guide() -> None:
@@ -233,7 +247,8 @@ def _print_subjective_integrity_warning(
     print(
         colorize(
             "    This warning has repeated. Prefer "
-            "`desloppify review --prepare` and run a trusted review "
+            f"`{build_review_prepare_command(scan_path=str(state.get('scan_path', '') or '').strip() or None)}` "
+            "and run a trusted review "
             "(see skill doc for options).",
             "yellow",
         )

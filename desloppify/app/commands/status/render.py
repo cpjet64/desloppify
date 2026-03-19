@@ -13,6 +13,7 @@ from desloppify.app.commands.scan.reporting import (
     dimensions as reporting_dimensions_mod,
 )
 from desloppify.base.output.terminal import colorize, print_table
+from desloppify.base.review_commands import build_review_prepare_command
 from desloppify.engine._scoring.detection import merge_potentials
 from desloppify.engine._scoring.policy.core import DIMENSIONS
 from desloppify.engine._scoring.results.core import compute_score_impact
@@ -73,11 +74,15 @@ def _render_dimension_legend(
         )
         if objective_backlog <= 0:
             n = len(stale_keys)
-            dims_arg = ",".join(stale_keys)
+            rerun_command = build_review_prepare_command(
+                scan_path=str((state or {}).get("scan_path", "") or "").strip() or None,
+                dimensions=stale_keys,
+                force_review_rerun=True,
+            )
             print(
                 colorize(
                     f"  {n} stale dimension{'s' if n != 1 else ''}"
-                    f": `desloppify review --prepare --dimensions {dims_arg} --force-review-rerun`",
+                    f": `{rerun_command}`",
                     "yellow",
                 )
             )

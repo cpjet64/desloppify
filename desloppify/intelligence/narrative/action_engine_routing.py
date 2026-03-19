@@ -5,11 +5,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from desloppify.base.review_commands import build_review_prepare_command
 from desloppify.engine._scoring.results.core import get_dimension_for_detector
 from desloppify.engine._state.issue_semantics import (
     ASSESSMENT_REQUEST,
-    REVIEW_DEFECT,
     REVIEW_CONCERN,
+    REVIEW_DEFECT,
     infer_work_item_kind,
 )
 from desloppify.intelligence.narrative._constants import DETECTOR_TOOLS
@@ -54,6 +55,8 @@ def _build_refactor_entry(
     tool_info: dict[str, Any],
     count: int,
     impact_for: Callable[[str, int], float],
+    *,
+    scan_path: str | None = None,
 ) -> ActionItem:
     """Build one refactor/manual action row."""
     guidance = tool_info.get("guidance", "manual fix")
@@ -61,7 +64,7 @@ def _build_refactor_entry(
 
     work_item_kind = infer_work_item_kind(detector)
     if work_item_kind == ASSESSMENT_REQUEST:
-        command = "desloppify review --prepare"
+        command = build_review_prepare_command(scan_path=scan_path)
         suffix = "s" if count != 1 else ""
         description = (
             f"{count} assessment request{suffix} need review — run holistic "
@@ -94,6 +97,8 @@ def _append_refactor_actions(
     actions: list[ActionItem],
     by_detector: dict[str, int],
     impact_for: Callable[[str, int], float],
+    *,
+    scan_path: str | None = None,
 ) -> None:
     """Append refactor/manual actions after auto-fix/reorg buckets."""
     for detector, tool_info in DETECTOR_TOOLS.items():
@@ -102,7 +107,15 @@ def _append_refactor_actions(
         count = by_detector.get(detector, 0)
         if count == 0:
             continue
-        actions.append(_build_refactor_entry(detector, tool_info, count, impact_for))
+        actions.append(
+            _build_refactor_entry(
+                detector,
+                tool_info,
+                count,
+                impact_for,
+                scan_path=scan_path,
+            )
+        )
 
 
 def _append_debt_action(actions: list[ActionItem], debt: dict[str, float]) -> None:

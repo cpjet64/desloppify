@@ -175,6 +175,7 @@ def build_issue_items(
         supported_fixers = supported_fixers_for_item(state, item)
         item["primary_command"] = primary_command_for_issue(
             item,
+            scan_path=str(state.get("scan_path", "") or "").strip() or None,
             supported_fixers=supported_fixers,
         )
 

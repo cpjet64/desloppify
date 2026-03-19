@@ -82,6 +82,23 @@ def test_build_refactor_entry_handles_special_detectors(monkeypatch) -> None:
     assert generic["description"] == "2 smells work items — clean up"
 
 
+def test_build_refactor_entry_preserves_scan_path_for_assessment_requests(monkeypatch) -> None:
+    monkeypatch.setattr(
+        routing_mod,
+        "get_dimension_for_detector",
+        lambda _detector: SimpleNamespace(name="Design"),
+    )
+
+    subjective = routing_mod._build_refactor_entry(
+        "subjective_review",
+        {"action_type": "manual_fix"},
+        1,
+        lambda _detector, _count: 0.8,
+        scan_path="src",
+    )
+    assert subjective["command"] == "desloppify review --prepare --path src"
+
+
 def test_append_refactor_actions_and_debt_action(monkeypatch) -> None:
     monkeypatch.setattr(
         routing_mod,

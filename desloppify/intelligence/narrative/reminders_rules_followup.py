@@ -7,11 +7,24 @@ from datetime import UTC
 from datetime import datetime as _dt
 
 from desloppify.base.output.fallbacks import log_best_effort_failure
+from desloppify.base.review_commands import build_review_prepare_command
 from desloppify.intelligence.narrative._constants import _REMINDER_DECAY_THRESHOLD
 from desloppify.intelligence.narrative.reminders_rules_primary import _feedback_base_url
 from desloppify.state_io import StateModel
 
 logger = logging.getLogger(__name__)
+
+
+def _review_prepare_command(
+    state: StateModel,
+    *,
+    dimensions: list[str] | None = None,
+) -> str:
+    """Build a scoped review prepare command from the current scan state."""
+    return build_review_prepare_command(
+        scan_path=str(state.get("scan_path", "") or "").strip() or None,
+        dimensions=dimensions,
+    )
 
 
 def _review_queue_reminders(
@@ -45,15 +58,16 @@ def _review_queue_reminders(
             )
 
     if command == "resolve" and state.get("subjective_assessments"):
+        prepare_command = _review_prepare_command(state)
         reminders.append(
             {
                 "type": "rereview_needed",
                 "message": (
                     "Subjective results may be stale after resolve. Re-run "
-                    "`desloppify review --prepare` to refresh, or reset with "
+                    f"`{prepare_command}` to refresh, or reset with "
                     "`desloppify scan --reset-subjective` before a clean rerun."
                 ),
-                "command": "desloppify review --prepare",
+                "command": prepare_command,
             }
         )
 
@@ -61,14 +75,15 @@ def _review_queue_reminders(
     if not review_cache.get("files"):
         current_strict = strict_score or 0
         if current_strict >= 80:
+            prepare_command = _review_prepare_command(state)
             reminders.append(
                 {
                     "type": "review_not_run",
                     "message": (
                         "Mechanical checks look good! Run a subjective design review "
-                        "to catch issues linters miss: desloppify review --prepare"
+                        f"to catch issues linters miss: {prepare_command}"
                     ),
-                    "command": "desloppify review --prepare",
+                    "command": prepare_command,
                 }
             )
 
@@ -96,16 +111,17 @@ def _stale_assessment_reminder(state: StateModel) -> list[dict]:
     ]
     if not stale_dims:
         return []
-    dims_arg = ",".join(stale_dims[:10])
+    scoped_dims = stale_dims[:10]
+    prepare_command = _review_prepare_command(state, dimensions=scoped_dims)
     return [
         {
             "type": "stale_assessments",
             "message": (
                 f"{len(stale_dims)} subjective dimension"
                 f"{'s' if len(stale_dims) != 1 else ''} stale after mechanical changes "
-                f"— re-review with: `desloppify review --prepare --dimensions {dims_arg}`"
+                f"— re-review with: `{prepare_command}`"
             ),
-            "command": f"desloppify review --prepare --dimensions {dims_arg}",
+            "command": prepare_command,
         }
     ]
 
@@ -128,11 +144,12 @@ def _review_staleness_reminder(state: StateModel, config: dict | None) -> list[d
         return []
     if age_days <= review_max_age:
         return []
+    prepare_command = _review_prepare_command(state)
     return [
         {
             "type": "review_stale",
-            "message": f"Design review is {age_days} days old — run: desloppify review --prepare",
-            "command": "desloppify review --prepare",
+            "message": f"Design review is {age_days} days old — run: {prepare_command}",
+            "command": prepare_command,
         }
     ]
 

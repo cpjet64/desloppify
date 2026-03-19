@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import desloppify.engine._scoring.results.core as scoring_mod
+import desloppify.intelligence.narrative._constants as narrative_constants_mod
 from desloppify import state as state_mod
 from desloppify.app.commands.scan.reporting.subjective import (
     SubjectiveFollowup,
@@ -14,16 +15,16 @@ from desloppify.app.commands.scan.reporting.subjective import (
     subjective_integrity_notice_lines,
     subjective_rerun_command,
 )
-from desloppify.base.config import DEFAULT_TARGET_STRICT_SCORE
 from desloppify.base import registry as registry_mod
+from desloppify.base.config import DEFAULT_TARGET_STRICT_SCORE
 from desloppify.base.output.terminal import colorize
+from desloppify.base.review_commands import build_review_prepare_command
 from desloppify.engine.planning.scorecard_projection import (
     dimension_cli_key,
     scorecard_dimension_cli_keys,
     scorecard_dimension_rows,
     scorecard_subjective_entries,
 )
-import desloppify.intelligence.narrative._constants as narrative_constants_mod
 
 from . import presentation as presentation_mod
 
@@ -127,7 +128,11 @@ def show_scorecard_subjective_measures(state: dict) -> None:
         f.get("status") == "open" and not f.get("suppressed")
         for f in (state.get("work_items") or {}).values()
     )
-    stale_followup = _stale_subjective_followup(stale_keys, has_open=has_open)
+    stale_followup = _stale_subjective_followup(
+        stale_keys,
+        has_open=has_open,
+        scan_path=str(state.get("scan_path", "") or "").strip() or None,
+    )
     if stale_followup:
         print(colorize(stale_followup, "yellow"))
     print()
@@ -163,14 +168,22 @@ def _scorecard_entry_suffix(entry: dict) -> str:
     return ""
 
 
-def _stale_subjective_followup(stale_keys: list[str], *, has_open: bool) -> str:
+def _stale_subjective_followup(
+    stale_keys: list[str],
+    *,
+    has_open: bool,
+    scan_path: str | None = None,
+) -> str:
     if not stale_keys or has_open:
         return ""
     count = len(stale_keys)
-    dims_arg = ",".join(stale_keys)
+    prepare_command = build_review_prepare_command(
+        scan_path=scan_path,
+        dimensions=stale_keys,
+    )
     return (
         f"  {count} stale subjective dimension{'s' if count != 1 else ''}"
-        f" — run `desloppify review --prepare --dimensions {dims_arg}` then follow your runner's review workflow"
+        f" — run `{prepare_command}` then follow your runner's review workflow"
     )
 
 

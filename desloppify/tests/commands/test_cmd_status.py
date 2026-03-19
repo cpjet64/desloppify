@@ -240,6 +240,7 @@ class TestShowIgnoreSummary:
 class TestStatusSubjectiveFollowup:
     def test_penalty_state_prints_warning_and_next_step(self, capsys):
         state = {
+            "scan_path": "src",
             "subjective_integrity": {
                 "status": "penalized",
                 "target_score": 95.0,
@@ -269,7 +270,4 @@ class TestStatusSubjectiveFollowup:
         out = capsys.readouterr().out
         assert "were reset to 0.0 this scan" in out
         assert "Anti-gaming safeguard applied" in out
-        assert (
-            "review --prepare --force-review-rerun --dimensions"
-            in out
-        )
+        assert "review --prepare --path src --force-review-rerun --dimensions" in out

@@ -284,8 +284,8 @@ If the fix is unclear or the change needs discussion, open an issue at `https://
 
 ## Prerequisite
 
-`command -v desloppify >/dev/null 2>&1 && echo "desloppify: installed" || echo "NOT INSTALLED — run: uvx --from git+https://github.com/cpjet64/desloppify.git desloppify"`
+`command -v desloppify >/dev/null 2>&1 && echo "desloppify: installed" || echo "NOT INSTALLED — run: uvx --from git+https://github.com/cpjet64/desloppify.git@main desloppify"`
 
-If `uvx` is not available: `pip install desloppify[full]`
+If `uvx` is not available: `python3 -m pip install --force-reinstall "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git@main"`
 
 <!-- desloppify-end -->

@@ -8,11 +8,12 @@ from typing import Any
 
 from desloppify.base.enums import issue_status_tokens
 from desloppify.base.registry import DETECTORS
+from desloppify.base.review_commands import build_review_prepare_command
 from desloppify.engine._plan.cluster_semantics import ACTION_TYPE_AUTO_FIX
 from desloppify.engine._plan.constants import is_triage_id
 from desloppify.engine._state.issue_semantics import (
-    is_review_finding,
     is_assessment_request,
+    is_review_finding,
 )
 from desloppify.engine._state.schema import StateModel
 from desloppify.engine._work_queue.types import WorkQueueItem
@@ -160,7 +161,10 @@ def supported_fixers_for_item(
 
 
 def primary_command_for_issue(
-    item: WorkQueueItem, *, supported_fixers: set[str] | None = None
+    item: WorkQueueItem,
+    *,
+    scan_path: str | None = None,
+    supported_fixers: set[str] | None = None,
 ) -> str:
     detector = item.get("detector", "")
     meta = DETECTORS.get(detector)
@@ -174,9 +178,10 @@ def primary_command_for_issue(
             return f"desloppify autofix {available_fixers[0]} --dry-run"
     if is_assessment_request(item):
         dim_key = (item.get("detail") or {}).get("dimension", "")
-        if dim_key:
-            return f"desloppify review --prepare --dimensions {dim_key}"
-        return "desloppify review --prepare"
+        return build_review_prepare_command(
+            scan_path=scan_path,
+            dimensions=[dim_key] if dim_key else None,
+        )
     return f'desloppify plan resolve "{item.get("id", "")}" --note "<what you did>" --confirm'
 
 

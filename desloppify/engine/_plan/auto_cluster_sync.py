@@ -9,17 +9,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from desloppify.engine._plan.policy import stale as stale_policy_mod
-from desloppify.engine._plan.sync.context import (
-    has_objective_backlog as _has_objective_backlog,
-)
+from desloppify.base.review_commands import build_review_prepare_command
 from desloppify.engine._plan.auto_cluster_sync_issue import (
     _sync_auto_cluster,
     sync_issue_clusters,
 )
 from desloppify.engine._plan.constants import SUBJECTIVE_PREFIX
+from desloppify.engine._plan.policy import stale as stale_policy_mod
 from desloppify.engine._plan.policy.subjective import SubjectiveVisibility
 from desloppify.engine._plan.sync.auto_prune import prune_stale_clusters
+from desloppify.engine._plan.sync.context import (
+    has_objective_backlog as _has_objective_backlog,
+)
 from desloppify.engine._plan.sync.dimensions import (
     current_under_target_ids,
     current_unscored_ids,
@@ -82,8 +83,11 @@ def _subjective_cli_keys(issue_ids: list[str]) -> list[str]:
     return [fid.removeprefix(SUBJECTIVE_PREFIX) for fid in issue_ids]
 
 
-def _subjective_action(issue_ids: list[str]) -> str:
-    return "desloppify review --prepare --dimensions " + ",".join(_subjective_cli_keys(issue_ids))
+def _subjective_action(issue_ids: list[str], *, scan_path: str | None = None) -> str:
+    return build_review_prepare_command(
+        scan_path=scan_path,
+        dimensions=_subjective_cli_keys(issue_ids),
+    )
 
 
 def _sync_subjective_cluster(
@@ -151,6 +155,7 @@ def _subjective_cluster_specs(
     under_target_queue_ids: list[str],
     skipped_subjective_ids: set[str],
     has_objective_items: bool,
+    scan_path: str | None = None,
 ) -> list[SubjectiveClusterSpec]:
     specs = [
         SubjectiveClusterSpec(
@@ -160,14 +165,14 @@ def _subjective_cluster_specs(
             description=(
                 f"Initial review of {len(unscored_queue_ids)} unscored subjective dimensions"
             ),
-            action=_subjective_action(unscored_queue_ids),
+            action=_subjective_action(unscored_queue_ids, scan_path=scan_path),
         ),
         SubjectiveClusterSpec(
             cluster_key=_STALE_KEY,
             cluster_name=_STALE_NAME,
             member_ids=stale_queue_ids,
             description=f"Re-review {len(stale_queue_ids)} stale subjective dimensions",
-            action=_subjective_action(stale_queue_ids),
+            action=_subjective_action(stale_queue_ids, scan_path=scan_path),
         ),
     ]
     if has_objective_items:
@@ -185,7 +190,10 @@ def _subjective_cluster_specs(
                 f"Consider re-reviewing {len(filtered_under_target_ids)} "
                 f"dimensions under target score"
             ),
-            action=_subjective_action(filtered_under_target_ids),
+            action=_subjective_action(
+                filtered_under_target_ids,
+                scan_path=scan_path,
+            ),
             optional=True,
         )
     )
@@ -230,6 +238,7 @@ def sync_subjective_clusters(
         under_target_queue_ids=under_target_queue_ids,
         skipped_subjective_ids=skipped_subjective_ids,
         has_objective_items=has_objective_items,
+        scan_path=str(state.get("scan_path", "") or "").strip() or None,
     ):
         changes += _sync_subjective_cluster(
             plan=plan,

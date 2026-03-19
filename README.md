@@ -24,7 +24,7 @@ Use the prompt that matches your agent.
 I want you to improve the quality of this codebase. To do this, install and run desloppify.
 Run ALL of the following (requires Python 3.11+):
 
-python3 -m pip install --upgrade "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git"
+python3 -m pip install --force-reinstall "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git@main"
 python3 -m desloppify update-skill codex
 
 Add .desloppify/ to your .gitignore — it contains local state that shouldn't be committed.
@@ -63,7 +63,7 @@ If desloppify itself is broken, fix it in the forked repo or file an issue. Do n
 I want you to improve the quality of this codebase. To do this, install and run desloppify.
 Run ALL of the following (requires Python 3.11+):
 
-python3 -m pip install --upgrade "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git"
+python3 -m pip install --force-reinstall "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git@main"
 python3 -m desloppify update-skill claude
 
 Add .desloppify/ to your .gitignore — it contains local state that shouldn't be committed.
@@ -101,7 +101,7 @@ If desloppify itself is broken, fix it in the forked repo or file an issue. Do n
 ```text
 I want you to improve the quality of this codebase. Install and run desloppify first.
 
-python3 -m pip install --upgrade "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git"
+python3 -m pip install --force-reinstall "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git@main"
 
 If you are Codex, run:
 python3 -m desloppify update-skill codex
@@ -140,7 +140,7 @@ First, inspect the existing setup:
 
 If the skill is not installed yet, install from my fork and update the matching skill:
 
-python3 -m pip install --upgrade "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git"
+python3 -m pip install --force-reinstall "desloppify[full] @ git+https://github.com/cpjet64/desloppify.git@main"
 
 If you are Codex, run:
 python3 -m desloppify update-skill codex

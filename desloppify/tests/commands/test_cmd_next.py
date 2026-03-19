@@ -66,7 +66,7 @@ class TestCmdNextOutput:
                 "last_scan": None,
                 "issues": {},
                 "dimension_scores": {},
-                "scan_path": ".",
+                "scan_path": "src",
             },
         )
 
@@ -89,7 +89,7 @@ class TestCmdNextOutput:
                 "overall_score": 90.0,
                 "objective_score": 90.0,
                 "strict_score": 90.0,
-                "scan_path": ".",
+                "scan_path": "src",
             },
         )
         captured = {}
@@ -128,7 +128,7 @@ class TestCmdNextOutput:
                 "overall_score": 94.0,
                 "objective_score": 98.0,
                 "strict_score": 94.0,
-                "scan_path": ".",
+                "scan_path": "src",
             },
         )
         monkeypatch.setattr(next_mod, "write_query", lambda _payload: None)
@@ -389,7 +389,7 @@ class TestCmdNextOutput:
                 "overall_score": 92.0,
                 "objective_score": 96.0,
                 "strict_score": 92.0,
-                "scan_path": ".",
+                "scan_path": "src",
             },
         )
         monkeypatch.setattr(next_mod, "write_query", lambda _payload: None)
@@ -418,10 +418,7 @@ class TestCmdNextOutput:
         out = capsys.readouterr().out
         assert "were reset to 0.0 this scan" in out
         assert "Anti-gaming safeguard applied" in out
-        assert (
-            "review --prepare --force-review-rerun --dimensions"
-            in out
-        )
+        assert "review --prepare --path src --force-review-rerun --dimensions" in out
         assert "naming_quality" in out
         assert "logic_clarity" in out
 
