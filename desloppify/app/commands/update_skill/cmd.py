@@ -423,10 +423,6 @@ def _update_installed_skill_with_deps(
         print(colorize_fn(f"Download failed: {exc}", "red"))
         return False
 
-    if "desloppify-skill-version" not in skill_content:
-        print(colorize_fn("Downloaded content doesn't look like a skill document.", "red"))
-        return False
-
     metadata_content = _download_optional_asset(
         _optional_metadata_filename(
             overlay_name=target.overlay_name,
@@ -447,7 +443,13 @@ def _update_installed_skill_with_deps(
             print(colorize_fn(f"Hook asset download failed: {exc}", "red"))
             return False
 
-    new_section = _build_section(skill_content, overlay_content)
+    if interface == "codex_loop95":
+        new_section = overlay_content or ""
+    else:
+        new_section = _build_section(skill_content, overlay_content)
+    if "desloppify-skill-version" not in new_section:
+        print(colorize_fn("Downloaded content doesn't look like a skill document.", "red"))
+        return False
     if interface in _FRONTMATTER_FIRST_INTERFACES:
         new_section = _ensure_frontmatter_first(new_section)
 

@@ -224,13 +224,10 @@ def test_update_installed_skill_supports_codex_loop95_target(
     capsys,
 ) -> None:
     skill_content = (
-        "<!-- desloppify-begin -->\n"
-        f"<!-- desloppify-skill-version: {update_skill_cmd_mod.SKILL_VERSION} -->\n"
-        "---\n"
-        "name: desloppify\n"
-        "---\n"
-        "body\n"
-        "<!-- desloppify-end -->\n"
+        "---\nname: desloppify\n---\n"
+        "<!-- body that must not be inherited -->\n"
+        "**Don't be lazy.**\n"
+        "## 4. Fix Tool Issues Upstream\n"
     )
     overlay_content = (
         "---\n"
@@ -238,13 +235,18 @@ def test_update_installed_skill_supports_codex_loop95_target(
         "description: >\n"
         "  Loop until strict score is at least 95.\n"
         "---\n"
-        "loop95 overlay\n"
+        "<!-- desloppify-begin -->\n"
+        f"<!-- desloppify-skill-version: {update_skill_cmd_mod.SKILL_VERSION} -->\n"
+        "# Desloppify Loop95\n"
+        "Do not inspect `desloppify backlog` while review is pending.\n"
+        "<!-- desloppify-overlay: codex_loop95 -->\n"
+        "<!-- desloppify-end -->\n"
     )
     metadata_content = (
         "interface:\n"
         '  display_name: "Desloppify Loop95"\n'
         '  short_description: "Raise strict score to 95 with a persistent fix loop."\n'
-        '  default_prompt: "Use $desloppify-loop95 to inspect the current repo state, run `desloppify scan --path .`, check `desloppify status`, review this scan cycle if needed, and keep working `desloppify next`. When the execution queue empties, run `desloppify plan queue` and follow its exact promotion guidance until strict >= 95.0."\n'
+        '  default_prompt: "Use $desloppify-loop95 to inspect the current repo state, run `desloppify scan --path .`, clear review before touching code, and use `desloppify plan queue` only after `desloppify next` empties until strict >= 95.0."\n'
         "policy:\n"
         "  allow_implicit_invocation: false\n"
     )
@@ -279,11 +281,15 @@ def test_update_installed_skill_supports_codex_loop95_target(
     assert update_skill_cmd_mod.update_installed_skill("codex_loop95") is True
     written = target.read_text(encoding="utf-8")
     assert written.startswith("---\nname: desloppify-loop95\n")
-    assert "loop95 overlay" in written
+    assert "# Desloppify Loop95" in written
     assert "name: desloppify\n" not in written
+    assert "body that must not be inherited" not in written
+    assert "**Don't be lazy.**" not in written
+    assert "## 4. Fix Tool Issues Upstream" not in written
     metadata = metadata_path.read_text(encoding="utf-8")
     assert 'display_name: "Desloppify Loop95"' in metadata
     assert "$desloppify-loop95" in metadata
+    assert "clear review before touching code" in metadata
     assert "allow_implicit_invocation: false" in metadata
     assert hook_path.read_text(encoding="utf-8") == hook_content
     hooks_payload = json.loads(hooks_json_path.read_text(encoding="utf-8"))
@@ -309,17 +315,24 @@ def test_update_installed_skill_supports_project_scoped_codex_loop95_metadata(
     tmp_path: Path,
 ) -> None:
     skill_content = (
+        "---\nname: desloppify\n---\n"
+        "generic body\n"
+    )
+    overlay_content = (
+        "---\n"
+        "name: desloppify-loop95\n"
+        "---\n"
         "<!-- desloppify-begin -->\n"
         f"<!-- desloppify-skill-version: {update_skill_cmd_mod.SKILL_VERSION} -->\n"
-        "body\n"
+        "standalone loop95\n"
+        "<!-- desloppify-overlay: codex_loop95 -->\n"
         "<!-- desloppify-end -->\n"
     )
-    overlay_content = "loop95 overlay\n"
     metadata_content = (
         "interface:\n"
         '  display_name: "Desloppify Loop95"\n'
         '  short_description: "Raise strict score to 95 with a persistent fix loop."\n'
-        '  default_prompt: "Use $desloppify-loop95 to inspect the current repo state, run `desloppify plan queue` when execution empties, and keep looping until strict >= 95.0."\n'
+        '  default_prompt: "Use $desloppify-loop95 to inspect the current repo state, clear review first, run `desloppify plan queue` when execution empties, and keep looping until strict >= 95.0."\n'
         "policy:\n"
         "  allow_implicit_invocation: false\n"
     )
@@ -347,6 +360,9 @@ def test_update_installed_skill_supports_project_scoped_codex_loop95_metadata(
     monkeypatch.setattr(update_skill_cmd_mod, "colorize", lambda text, _style: text)
 
     assert update_skill_cmd_mod.update_installed_skill("codex_loop95", scope="project") is True
+    skill_path = tmp_path / ".agents" / "skills" / "desloppify-loop95" / "SKILL.md"
+    assert skill_path.read_text(encoding="utf-8").startswith("---\nname: desloppify-loop95\n")
+    assert "generic body" not in skill_path.read_text(encoding="utf-8")
     assert (
         tmp_path
         / ".agents"

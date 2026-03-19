@@ -202,6 +202,9 @@ def test_codex_loop95_skill_guidance_is_documented() -> None:
     assert "codex_hooks = true" in loop_doc
     assert "LOOP95_BLOCKED:" in skill_doc
     assert "LOOP95_BLOCKED:" in loop_doc
+    assert "Do not inspect `desloppify backlog` while subjective review is pending" in loop_doc
+    assert "**Don't be lazy.**" not in loop_doc
+    assert "## 4. Fix Tool Issues Upstream" not in loop_doc
     assert CODEX_LOOP95_HOOK.is_file()
 
 
@@ -214,18 +217,23 @@ def test_codex_loop95_openai_metadata_contract() -> None:
     assert "$desloppify-loop95" in interface["default_prompt"]
     assert "strict >= 95.0" in interface["default_prompt"]
     assert "desloppify plan queue" in interface["default_prompt"]
+    assert "desloppify show review --status open" in interface["default_prompt"]
     assert "LOOP95_BLOCKED:" in interface["default_prompt"]
     assert policy["allow_implicit_invocation"] is False
 
 
 def test_skill_version_marker_matches_runtime_constant() -> None:
     skill_doc = SKILL_DOC.read_text()
+    loop_doc = CODEX_LOOP95_DOC.read_text()
     skill_impl = SKILL_DOCS_IMPL.read_text()
     marker_match = re.search(r"desloppify-skill-version:\s*(\d+)", skill_doc)
+    loop_marker_match = re.search(r"desloppify-skill-version:\s*(\d+)", loop_doc)
     constant_match = re.search(r"SKILL_VERSION\s*=\s*(\d+)", skill_impl)
     assert marker_match is not None
+    assert loop_marker_match is not None
     assert constant_match is not None
     assert marker_match.group(1) == constant_match.group(1)
+    assert loop_marker_match.group(1) == constant_match.group(1)
 
 
 def test_ci_plan_required_checks_match_ci_workflow() -> None:

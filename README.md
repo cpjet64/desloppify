@@ -63,8 +63,8 @@ If you want Codex to keep going until `strict >= 95` is explicitly satisfied, in
 python3 -m desloppify update-skill codex_loop95
 ```
 
-That installs `~/.codex/skills/desloppify-loop95/SKILL.md` plus `~/.codex/skills/desloppify-loop95/agents/openai.yaml`, so explicit `$desloppify-loop95` invocation starts with a real loop prompt instead of just adding passive instructions.
-It also writes `~/.codex/hooks.json` plus `~/.codex/hooks/desloppify_loop95_hook.py`, enables `[features].codex_hooks = true` in `~/.codex/config.toml`, and keeps that session running until strict is at least 95. The enforced loop is scan, review the current scan when below target, execute the living plan, auto-promote backlog when `next` empties, then rescan. If the agent is genuinely blocked below target, it must report `LOOP95_BLOCKED:` with the exact blocker.
+That installs `~/.codex/skills/desloppify-loop95/SKILL.md` plus `~/.codex/skills/desloppify-loop95/agents/openai.yaml`, so explicit `$desloppify-loop95` invocation starts with a dedicated loop skill instead of the generic Codex skill plus a small overlay.
+It also writes `~/.codex/hooks.json` plus `~/.codex/hooks/desloppify_loop95_hook.py`, enables `[features].codex_hooks = true` in `~/.codex/config.toml`, and keeps that session running until strict is at least 95. The enforced loop is scan, review the current scan when below target, clear open review work, execute the living plan, consult `plan queue` when `next` empties, then promote only what `plan queue` recommends and rescan when the current work chunk is exhausted. If the agent is genuinely blocked below target, it must report `LOOP95_BLOCKED:` with the exact blocker.
 
 ### Claude prompt
 

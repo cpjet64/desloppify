@@ -73,6 +73,7 @@ def test_user_prompt_submit_activates_session_and_injects_context(tmp_path) -> N
     assert "strict >= 95.0" in response["hookSpecificOutput"]["additionalContext"]
     assert "desloppify plan queue" in response["hookSpecificOutput"]["additionalContext"]
     assert "desloppify plan promote ..." in response["hookSpecificOutput"]["additionalContext"]
+    assert "Do not inspect backlog or edit code" in response["hookSpecificOutput"]["additionalContext"]
     session_state = hook_mod._read_session_state(tmp_path, "abc-123")
     assert session_state["enabled"] is True
 
@@ -98,6 +99,33 @@ def test_stop_hook_blocks_for_review_before_execution(tmp_path) -> None:
     assert "strict 84.0/95.0" in response["reason"]
     assert "subjective review" in response["reason"]
     assert "review --run-batches --runner codex --parallel --scan-after-import" in response["reason"]
+    assert "Do not inspect backlog or edit code" in response["reason"]
+
+
+def test_stop_hook_blocks_open_review_before_backlog_or_code(tmp_path) -> None:
+    hook_mod = _load_hook_module()
+    hook_mod._write_session_state(tmp_path, "abc-123", {"enabled": True})
+    payload = {
+        "hook_event_name": "Stop",
+        "permission_mode": "default",
+        "session_id": "abc-123",
+        "cwd": str(tmp_path),
+        "last_assistant_message": "I think this is done.",
+    }
+
+    response = hook_mod.handle_stop(
+        payload,
+        config_root=tmp_path,
+        state_summary_fn=lambda _cwd: _summary(
+            strict=88.0,
+            kind="show_review",
+            primary_command="desloppify show review --status open",
+        ),
+    )
+
+    assert response["decision"] == "block"
+    assert "show review --status open" in response["reason"]
+    assert "Do not inspect backlog or continue implementation work" in response["reason"]
 
 
 def test_stop_hook_blocks_with_backlog_promotion_when_execution_is_empty(tmp_path) -> None:
