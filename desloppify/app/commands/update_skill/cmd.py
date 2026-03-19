@@ -61,10 +61,40 @@ def _download(filename: str) -> str:
 
 def _build_section(skill_content: str, overlay_content: str | None) -> str:
     """Assemble the complete skill section from downloaded parts."""
-    parts = [skill_content.rstrip()]
-    if overlay_content:
-        parts.append(overlay_content.rstrip())
-    return "\n\n".join(parts) + "\n"
+    def _split_frontmatter(content: str | None) -> tuple[str | None, str]:
+        if not content:
+            return None, ""
+        normalized = content.lstrip("\ufeff")
+        lines = normalized.splitlines()
+        if not lines:
+            return None, normalized
+        fm_start = None
+        for index, line in enumerate(lines):
+            if line.strip() == "---":
+                fm_start = index
+                break
+        if fm_start is None:
+            return None, normalized
+        for index in range(fm_start + 1, len(lines)):
+            if lines[index].strip() == "---":
+                frontmatter = "\n".join(lines[fm_start : index + 1]).rstrip()
+                body_lines = lines[:fm_start] + lines[index + 1 :]
+                body = "\n".join(body_lines).lstrip("\n")
+                return frontmatter, body
+        return None, normalized
+
+    skill_frontmatter, skill_body = _split_frontmatter(skill_content)
+    overlay_frontmatter, overlay_body = _split_frontmatter(overlay_content)
+
+    frontmatter = overlay_frontmatter or skill_frontmatter
+    parts = [part.rstrip() for part in (skill_body, overlay_body) if part and part.strip()]
+    body = "\n\n".join(parts)
+
+    if frontmatter and body:
+        return f"{frontmatter}\n\n{body}\n"
+    if frontmatter:
+        return f"{frontmatter}\n"
+    return body + ("\n" if body else "")
 
 
 _FRONTMATTER_FIRST_INTERFACES = frozenset({"amp", "codex", "codex_loop95"})

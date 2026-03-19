@@ -50,6 +50,20 @@ def test_update_skill_helper_functions_cover_frontmatter_resolution_and_replace(
     section = update_skill_cmd_mod._build_section("skill body\n", "overlay body\n")
     assert section == "skill body\n\noverlay body\n"
 
+    skill_with_frontmatter = "---\nname: desloppify\n---\n<!-- body -->\n"
+    overlay_with_frontmatter = (
+        "---\nname: desloppify-loop95\n---\n"
+        "## Codex Loop95 Overlay\n"
+    )
+    overridden = update_skill_cmd_mod._build_section(
+        skill_with_frontmatter,
+        overlay_with_frontmatter,
+    )
+    assert overridden.startswith("---\nname: desloppify-loop95\n---\n")
+    assert "<!-- body -->" in overridden
+    assert "## Codex Loop95 Overlay" in overridden
+    assert "name: desloppify\n" not in overridden
+
     replaced = update_skill_cmd_mod._replace_section(
         f"prefix\n\n{update_skill_cmd_mod.SKILL_BEGIN}\nold\n{update_skill_cmd_mod.SKILL_END}\n",
         "new section\n",
@@ -149,7 +163,14 @@ def test_update_installed_skill_supports_codex_loop95_target(
         "body\n"
         "<!-- desloppify-end -->\n"
     )
-    overlay_content = "loop95 overlay\n"
+    overlay_content = (
+        "---\n"
+        "name: desloppify-loop95\n"
+        "description: >\n"
+        "  Loop until strict score is at least 95.\n"
+        "---\n"
+        "loop95 overlay\n"
+    )
     target = tmp_path / ".codex" / "skills" / "desloppify-loop95" / "SKILL.md"
 
     monkeypatch.setattr(
@@ -167,8 +188,10 @@ def test_update_installed_skill_supports_codex_loop95_target(
     monkeypatch.setattr(update_skill_cmd_mod, "colorize", lambda text, _style: text)
 
     assert update_skill_cmd_mod.update_installed_skill("codex_loop95") is True
-    assert target.read_text(encoding="utf-8").startswith("---\nname: desloppify\n---\n")
-    assert "loop95 overlay" in target.read_text(encoding="utf-8")
+    written = target.read_text(encoding="utf-8")
+    assert written.startswith("---\nname: desloppify-loop95\n")
+    assert "loop95 overlay" in written
+    assert "name: desloppify\n" not in written
     out = capsys.readouterr().out
     assert "Updated .codex/skills/desloppify-loop95/SKILL.md" in out
 

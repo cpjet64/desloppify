@@ -1,3 +1,11 @@
+---
+name: desloppify-loop95
+description: >
+  Codebase health scanner and technical debt tracker. Use when you want Codex
+  to keep looping through the desloppify workflow until the strict score is at
+  least 95, while still following scan, review, plan, and next guidance.
+---
+
 ## Codex Loop95 Overlay
 
 This optional Codex overlay is for one job: keep running the desloppify workflow until the strict score is at least 95.

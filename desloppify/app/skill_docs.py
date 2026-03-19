@@ -9,9 +9,9 @@ from typing import Literal
 
 from desloppify.base.discovery.paths import get_project_root
 
-# Bump this integer whenever docs/SKILL.md changes in a way that agents
-# should pick up (new commands, changed workflows, removed sections).
-SKILL_VERSION = 7
+# Bump this integer whenever the shared skill doc or any interface overlay changes
+# in a way that agents should pick up.
+SKILL_VERSION = 8
 
 SKILL_VERSION_RE = re.compile(r"<!--\s*desloppify-skill-version:\s*(\d+)\s*-->")
 SKILL_OVERLAY_RE = re.compile(r"<!--\s*desloppify-overlay:\s*(\w+)\s*-->")
