@@ -653,6 +653,15 @@ class TestLangsAndUpdateSkillParsers:
         assert args.interface == "opencode"
         assert args.scope == "auto"
 
+    def test_update_skill_parser_with_codex_loop95_interface(self):
+        parser = argparse.ArgumentParser()
+        sub = parser.add_subparsers(dest="command")
+        parser_admin_mod._add_update_skill_parser(sub)
+
+        args = parser.parse_args(["update-skill", "codex_loop95"])
+        assert args.interface == "codex_loop95"
+        assert args.scope == "auto"
+
 
 # =====================================================================
 # Module 4: move_apply.py

@@ -181,6 +181,14 @@ def test_git_install_guidance_uses_force_reinstall_from_fork_main() -> None:
     assert "uvx --from git+https://github.com/cpjet64/desloppify.git@main desloppify" in skill_doc
 
 
+def test_codex_loop95_skill_guidance_is_documented() -> None:
+    readme = README.read_text()
+    skill_doc = SKILL_DOC.read_text()
+    assert "desloppify update-skill codex_loop95" in readme
+    assert "desloppify update-skill codex_loop95" in skill_doc
+    assert "~/.codex/skills/desloppify-loop95/SKILL.md" in skill_doc
+
+
 def test_ci_plan_required_checks_match_ci_workflow() -> None:
     ci = _load_yaml(CI_WORKFLOW)
     expected_contexts = [

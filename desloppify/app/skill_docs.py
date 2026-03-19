@@ -11,7 +11,7 @@ from desloppify.base.discovery.paths import get_project_root
 
 # Bump this integer whenever docs/SKILL.md changes in a way that agents
 # should pick up (new commands, changed workflows, removed sections).
-SKILL_VERSION = 6
+SKILL_VERSION = 7
 
 SKILL_VERSION_RE = re.compile(r"<!--\s*desloppify-skill-version:\s*(\d+)\s*-->")
 SKILL_OVERLAY_RE = re.compile(r"<!--\s*desloppify-overlay:\s*(\w+)\s*-->")
@@ -67,6 +67,7 @@ SKILL_TARGETS: dict[str, tuple[str, str, bool]] = {
     "claude": (".claude/skills/desloppify/SKILL.md", "CLAUDE", True),
     "opencode": (".opencode/skills/desloppify/SKILL.md", "OPENCODE", True),
     "codex": (".codex/skills/desloppify/SKILL.md", "CODEX", True),
+    "codex_loop95": (".codex/skills/desloppify-loop95/SKILL.md", "CODEX_LOOP95", True),
     "cursor": (".cursor/rules/desloppify.md", "CURSOR", True),
     "copilot": (".github/copilot-instructions.md", "COPILOT", False),
     "droid": (".factory/skills/desloppify/SKILL.md", "DROID", True),
@@ -77,6 +78,7 @@ SKILL_TARGETS: dict[str, tuple[str, str, bool]] = {
 
 SKILL_DEFAULT_SCOPES: dict[str, SkillScope] = {
     "codex": "user",
+    "codex_loop95": "user",
     "claude": "user",
 }
 
@@ -85,6 +87,7 @@ SKILL_PROJECT_TARGETS: dict[str, SkillTarget] = {
     "claude": SkillTarget("claude", "project", ".claude/skills/desloppify/SKILL.md", "CLAUDE", True, "legacy_project", False),
     "opencode": SkillTarget("opencode", "project", ".opencode/skills/desloppify/SKILL.md", "OPENCODE", True, "legacy_project", True),
     "codex": SkillTarget("codex", "project", ".agents/skills/desloppify/SKILL.md", "CODEX", True, "legacy_project", False),
+    "codex_loop95": SkillTarget("codex_loop95", "project", ".agents/skills/desloppify-loop95/SKILL.md", "CODEX_LOOP95", True, "legacy_project", False),
     "cursor": SkillTarget("cursor", "project", ".cursor/rules/desloppify.md", "CURSOR", True, "shared_file", True),
     "copilot": SkillTarget("copilot", "project", ".github/copilot-instructions.md", "COPILOT", False, "shared_file", True),
     "windsurf": SkillTarget("windsurf", "project", "AGENTS.md", "WINDSURF", False, "shared_file", True),
@@ -94,6 +97,7 @@ SKILL_PROJECT_TARGETS: dict[str, SkillTarget] = {
 
 SKILL_USER_TARGETS: dict[str, SkillTarget] = {
     "codex": SkillTarget("codex", "user", ".codex/skills/desloppify/SKILL.md", "CODEX", True, "canonical_user", True),
+    "codex_loop95": SkillTarget("codex_loop95", "user", ".codex/skills/desloppify-loop95/SKILL.md", "CODEX_LOOP95", True, "canonical_user", True),
     "claude": SkillTarget("claude", "user", ".claude/skills/desloppify/SKILL.md", "CLAUDE", True, "canonical_user", True),
 }
 
@@ -155,7 +159,8 @@ def _display_rel_path(path: Path, *, project_root: Path, home: Path) -> str:
         pass
     try:
         relative_home = path.relative_to(home)
-        return f"~/{str(relative_home).replace('\\', '/')}"
+        relative_text = str(relative_home).replace("\\", "/")
+        return f"~/{relative_text}"
     except ValueError:
         return str(path)
 

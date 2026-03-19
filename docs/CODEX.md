@@ -4,6 +4,8 @@ This is the canonical Codex overlay used by the README install command.
 
 Install it with `desloppify update-skill codex`. The native Codex target is `~/.codex/skills/desloppify/SKILL.md`. Use `--scope project` only if you intentionally need the legacy repo-local compatibility install.
 
+If you want Codex to treat `strict >= 95` as an explicit stop condition, install `desloppify update-skill codex_loop95` instead.
+
 1. Prefer first-class batch runs: `desloppify review --run-batches --runner codex --parallel --scan-after-import`.
 2. The command writes immutable packet snapshots under `.desloppify/review_packets/holistic_packet_*.json`; use those for reproducible retries.
 3. Keep reviewer input scoped to the immutable packet and the source files named in each batch.

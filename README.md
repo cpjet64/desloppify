@@ -57,6 +57,12 @@ The scan output includes agent instructions — follow them, don't substitute yo
 If desloppify itself is broken, fix it in the forked repo or file an issue. Do not patch installed `site-packages`.
 ```
 
+If you want Codex to keep going until `strict >= 95` is explicitly satisfied, install the optional loop skill instead:
+
+```bash
+python3 -m desloppify update-skill codex_loop95
+```
+
 ### Claude prompt
 
 ```text

@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 
 from desloppify.app.commands.helpers.lang import load_lang_config
+from desloppify.app.skill_docs import SKILL_TARGETS
+
 from .parser_groups_admin_review import _add_review_parser  # noqa: F401 (re-export)
 
 logger = logging.getLogger(__name__)
@@ -187,6 +189,7 @@ def _add_langs_parser(sub) -> None:
 
 
 def _add_update_skill_parser(sub) -> None:
+    interfaces = ", ".join(sorted(SKILL_TARGETS))
     p = sub.add_parser(
         "update-skill",
         help="Install or update the desloppify skill/agent document",
@@ -195,8 +198,7 @@ def _add_update_skill_parser(sub) -> None:
         "interface",
         nargs="?",
         default=None,
-        help="Agent interface (amp, claude, codex, cursor, copilot, windsurf, gemini, hermes, droid, opencode). "
-        "Auto-detected on updates if omitted.",
+        help=f"Agent interface ({interfaces}). Auto-detected on updates if omitted.",
     )
     p.add_argument(
         "--scope",

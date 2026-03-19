@@ -67,7 +67,7 @@ def _build_section(skill_content: str, overlay_content: str | None) -> str:
     return "\n\n".join(parts) + "\n"
 
 
-_FRONTMATTER_FIRST_INTERFACES = frozenset({"amp", "codex"})
+_FRONTMATTER_FIRST_INTERFACES = frozenset({"amp", "codex", "codex_loop95"})
 
 
 def _ensure_frontmatter_first(content: str) -> str:
@@ -232,7 +232,7 @@ def _update_installed_skill_with_deps(
             "green",
         )
     )
-    if interface in {"codex", "claude"} and resolved_scope == "project":
+    if interface in {"codex", "codex_loop95", "claude"} and resolved_scope == "project":
         print(colorize_fn("Wrote the project-scoped compatibility install.", "yellow"))
     return True
 

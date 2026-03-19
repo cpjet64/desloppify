@@ -77,6 +77,16 @@ def test_resolve_interface_prefers_explicit_then_install_metadata(monkeypatch) -
     monkeypatch.setattr(update_skill_cmd_mod, "find_installed_skills", lambda: [inferred])
     assert update_skill_cmd_mod.resolve_interface() == "cursor"
 
+    loop95 = _install(
+        "~/.codex/skills/desloppify-loop95/SKILL.md",
+        interface="codex_loop95",
+        overlay="codex_loop95",
+        scope="user",
+        source_kind="canonical_user",
+        canonical=True,
+    )
+    assert update_skill_cmd_mod.resolve_interface(None, install=loop95) == "codex_loop95"
+
 
 def test_update_installed_skill_handles_download_and_shared_file_write(
     monkeypatch,
@@ -125,6 +135,44 @@ def test_update_installed_skill_handles_download_and_shared_file_write(
     )
 
 
+def test_update_installed_skill_supports_codex_loop95_target(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    skill_content = (
+        "<!-- desloppify-begin -->\n"
+        f"<!-- desloppify-skill-version: {update_skill_cmd_mod.SKILL_VERSION} -->\n"
+        "---\n"
+        "name: desloppify\n"
+        "---\n"
+        "body\n"
+        "<!-- desloppify-end -->\n"
+    )
+    overlay_content = "loop95 overlay\n"
+    target = tmp_path / ".codex" / "skills" / "desloppify-loop95" / "SKILL.md"
+
+    monkeypatch.setattr(
+        update_skill_cmd_mod,
+        "_download",
+        lambda filename: skill_content if filename == "SKILL.md" else overlay_content,
+    )
+    monkeypatch.setattr(update_skill_cmd_mod, "get_project_root", lambda: tmp_path)
+    monkeypatch.setattr(update_skill_cmd_mod, "_get_home_path", lambda: tmp_path)
+    monkeypatch.setattr(
+        update_skill_cmd_mod,
+        "safe_write_text",
+        lambda path, text: path.write_text(text, encoding="utf-8"),
+    )
+    monkeypatch.setattr(update_skill_cmd_mod, "colorize", lambda text, _style: text)
+
+    assert update_skill_cmd_mod.update_installed_skill("codex_loop95") is True
+    assert target.read_text(encoding="utf-8").startswith("---\nname: desloppify\n---\n")
+    assert "loop95 overlay" in target.read_text(encoding="utf-8")
+    out = capsys.readouterr().out
+    assert "Updated .codex/skills/desloppify-loop95/SKILL.md" in out
+
+
 def test_cmd_update_skill_handles_missing_and_ambiguous_installs(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         update_skill_cmd_mod,
@@ -158,6 +206,23 @@ def test_cmd_update_skill_handles_missing_and_ambiguous_installs(monkeypatch, ca
     out = capsys.readouterr().out
     assert "Multiple installed skill documents were detected." in out
 
+    monkeypatch.setattr(
+        update_skill_cmd_mod,
+        "find_installed_skills",
+        lambda: [
+            _install("~/.codex/skills/desloppify/SKILL.md", interface="codex", overlay="codex", scope="user", source_kind="canonical_user", canonical=True),
+            _install("~/.codex/skills/desloppify-loop95/SKILL.md", interface="codex_loop95", overlay="codex_loop95", scope="user", source_kind="canonical_user", canonical=True),
+        ],
+    )
+    monkeypatch.setattr(
+        update_skill_cmd_mod,
+        "resolve_interface",
+        lambda _explicit=None, installs=None: None,
+    )
+    update_skill_cmd_mod.cmd_update_skill(argparse.Namespace(interface=None, scope="auto"))
+    out = capsys.readouterr().out
+    assert "Multiple installed skill documents were detected." in out
+
 
 def test_cmd_update_skill_handles_unknown_interface(monkeypatch, capsys) -> None:
     monkeypatch.setattr(update_skill_cmd_mod, "find_installed_skills", lambda: [])
@@ -165,3 +230,4 @@ def test_cmd_update_skill_handles_unknown_interface(monkeypatch, capsys) -> None
     update_skill_cmd_mod.cmd_update_skill(argparse.Namespace(interface="unknown_thing", scope="auto"))
     out = capsys.readouterr().out
     assert "Unknown interface 'unknown_thing'." in out
+    assert "codex_loop95" in out
