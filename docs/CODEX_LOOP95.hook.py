@@ -112,8 +112,8 @@ def _stop_reason(summary) -> str:
             "desloppify-loop95 is still active "
             f"({details}), but no actionable review, execution, or backlog work remains below target. "
             f"Stop only with `{BLOCKER_TOKEN}` followed by the exact command, exact error, and current strict score. "
-            f"If you still believe more work exists, verify with `{scan_cmd}`, `desloppify backlog --count 10`, "
-            "and `desloppify plan queue` first."
+            f"If you still believe more work exists, verify with `{scan_cmd}`, `desloppify plan queue`, "
+            "and then `desloppify backlog --count 10`."
         )
     return (
         "desloppify-loop95 is still active "
@@ -143,7 +143,9 @@ def handle_user_prompt_submit(payload: dict, *, config_root: Path) -> dict:
             "additionalContext": (
                 "desloppify-loop95 is active for this session. Start with `desloppify scan --path .`, "
                 "check `desloppify status`, and if strict is still below target run subjective review for this scan "
-                "before continuing with `desloppify next`. When `next` empties, promote backlog work and keep going; "
+                "before continuing with `desloppify next`. When `next` empties, run `desloppify plan queue`, follow "
+                "its exact empty-state guidance, and if it points to promotable backlog run the suggested "
+                "`desloppify plan promote ...` command before continuing; "
                 f"when the current work chunk is exhausted, rescan. Do not stop until `desloppify status` shows "
                 f"`strict >= {TARGET_STRICT:.1f}` and review is fresh. If you are genuinely blocked, stop only with "
                 f"`{BLOCKER_TOKEN}` followed by the exact command, exact error, and current strict score."

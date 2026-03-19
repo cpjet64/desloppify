@@ -17,7 +17,7 @@ Install it with `desloppify update-skill codex_loop95`. The native Codex target 
 3. After each scan, check `desloppify status`. If strict is already at target and review is fresh, you may stop.
 4. If the repo is still below target for the current scan cycle, run subjective review first: `desloppify review --prepare --path <scope>` and then `desloppify review --run-batches --runner codex --parallel --scan-after-import --path <scope>`.
 5. Once review for the current scan is complete, drive work from the living plan with `desloppify next`. Fix the current item and run its resolve command, but do not rescan after every single item.
-6. When `desloppify next` empties before the score target is met, inspect broader backlog and promote more work into the queue instead of stopping.
+6. When `desloppify next` empties before the score target is met, run `desloppify plan queue` first. Follow its exact empty-state guidance, and if promotable backlog remains use the suggested `desloppify plan promote ...` command before continuing.
 7. When the current work chunk is exhausted, rescan, check `desloppify status`, and repeat the cycle.
 8. The Ralph loop hook only activates for sessions where the user explicitly invokes `$desloppify-loop95`. Once activated, the stop hook keeps the session alive until the target is met or there is no actionable work left.
 9. If you are blocked below target, stop only with `LOOP95_BLOCKED:` followed by the exact failing command, the exact error output, and the current strict score.

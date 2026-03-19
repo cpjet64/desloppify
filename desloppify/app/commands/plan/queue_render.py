@@ -4,15 +4,20 @@ from __future__ import annotations
 
 import argparse
 
+from desloppify.app.commands.helpers.command_runtime import command_runtime
 from desloppify.app.commands.helpers.guardrails import print_triage_guardrail_info
 from desloppify.app.commands.helpers.queue_progress import (
     QueueBreakdown,
     format_queue_headline,
 )
-from desloppify.app.commands.helpers.command_runtime import command_runtime
 from desloppify.app.commands.helpers.state import require_issue_inventory
-from desloppify.app.commands.next.render_support import CLUSTER_TYPE_LABELS
+from desloppify.app.commands.next.render_support import (
+    CLUSTER_TYPE_LABELS,
+    build_empty_queue_guidance,
+)
+from desloppify.base.config import target_strict_score_from_config
 from desloppify.base.output.terminal import colorize, print_table
+from desloppify.engine._plan.sync.triage import compute_new_issue_ids
 from desloppify.engine._work_queue.core import (
     QueueBuildOptions,
 )
@@ -22,7 +27,6 @@ from desloppify.engine._work_queue.plan_order import (
 )
 from desloppify.engine.plan_state import load_plan
 from desloppify.engine.planning.queue_policy import build_execution_queue
-from desloppify.engine._plan.sync.triage import compute_new_issue_ids
 
 
 def _truncate(text: str, width: int) -> str:
@@ -229,6 +233,28 @@ def _render_queue_rows(display_items: list[dict], new_ids: set[str]) -> bool:
     return True
 
 
+def _print_empty_queue_state(
+    *,
+    state: dict,
+    plan: dict,
+    config: dict,
+    active_cluster: str | None = None,
+) -> None:
+    """Render actionable empty-state guidance without changing queue semantics."""
+    print(colorize("\n  Queue is empty.", "green"))
+    guidance = build_empty_queue_guidance(
+        state=state,
+        plan=plan,
+        target_strict=target_strict_score_from_config(config),
+        active_cluster=active_cluster,
+    )
+    if guidance is None:
+        return
+    print(colorize(f"  {guidance.headline}", "yellow"))
+    for line in guidance.lines:
+        print(colorize(f"  {line}", "dim"))
+
+
 def cmd_plan_queue(args: argparse.Namespace) -> None:
     """Render a compact table of all upcoming queue items."""
     runtime = command_runtime(args)
@@ -265,7 +291,15 @@ def cmd_plan_queue(args: argparse.Namespace) -> None:
     )
 
     if not items:
-        print(colorize("\n  Queue is empty.", "green"))
+        focus_cluster = None
+        if not cluster_filter:
+            focus_cluster = plan.get("active_cluster")
+        _print_empty_queue_state(
+            state=state,
+            plan=plan,
+            config=runtime.config,
+            active_cluster=focus_cluster,
+        )
         return
 
     # Determine which items to show

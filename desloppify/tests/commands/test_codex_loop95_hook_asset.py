@@ -71,7 +71,8 @@ def test_user_prompt_submit_activates_session_and_injects_context(tmp_path) -> N
 
     assert "hookSpecificOutput" in response
     assert "strict >= 95.0" in response["hookSpecificOutput"]["additionalContext"]
-    assert "promote backlog work" in response["hookSpecificOutput"]["additionalContext"]
+    assert "desloppify plan queue" in response["hookSpecificOutput"]["additionalContext"]
+    assert "desloppify plan promote ..." in response["hookSpecificOutput"]["additionalContext"]
     session_state = hook_mod._read_session_state(tmp_path, "abc-123")
     assert session_state["enabled"] is True
 

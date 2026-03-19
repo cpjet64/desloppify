@@ -213,6 +213,7 @@ def test_codex_loop95_openai_metadata_contract() -> None:
     assert interface["display_name"] == "Desloppify Loop95"
     assert "$desloppify-loop95" in interface["default_prompt"]
     assert "strict >= 95.0" in interface["default_prompt"]
+    assert "desloppify plan queue" in interface["default_prompt"]
     assert "LOOP95_BLOCKED:" in interface["default_prompt"]
     assert policy["allow_implicit_invocation"] is False
 
