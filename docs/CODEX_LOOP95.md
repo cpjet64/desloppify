@@ -2,12 +2,12 @@
 name: desloppify-loop95
 description: >
   Use when you want Codex to keep running the desloppify workflow until the
-  strict score is at least 95. This variant is review-first, plan-queue-driven,
-  and only stops at target or an explicit blocker.
+  strict score is at least 95. This variant is review-first, plan-queue-driven, and only
+  stops at target or an explicit blocker.
 ---
 
 <!-- desloppify-begin -->
-<!-- desloppify-skill-version: 13 -->
+<!-- desloppify-skill-version: 14 -->
 
 # Desloppify Loop95
 
@@ -35,6 +35,11 @@ writes `~/.codex/skills/desloppify-loop95/agents/openai.yaml`,
 8. If `desloppify plan queue` recommends `desloppify plan promote ...`, run that exact command and then return to `desloppify next`.
 9. Rescan only when the current work chunk is exhausted.
 10. Stop only when `strict >= 95.0` and review is fresh, or with `LOOP95_BLOCKED:` if genuinely blocked.
+
+## Hooked Continuation
+
+- The UserPromptSubmit hook appends explicit continuation context each turn, including current loop state (`scan`, `review`, `show_review`, `next`, `promote`, `blocked`).
+- If state is not fresh below target, the hook tells you to continue with the exact next command (`review`, `show review`, `next`, `plan promote`) before any new implementation.
 
 ## Hard Rules
 

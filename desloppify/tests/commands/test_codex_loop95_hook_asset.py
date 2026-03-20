@@ -27,11 +27,12 @@ def _summary(
     execution_summary: str | None = None,
     execution_primary_command: str | None = None,
 ) -> SimpleNamespace:
+    scan_path = "."
     return SimpleNamespace(
         strict_score=strict,
         target_strict=95.0,
         scan_count=2,
-        scan_path=".",
+        scan_path=scan_path,
         phase="execute",
         review_completed_for_scan=kind != "review",
         stale_subjective_count=0,
@@ -52,7 +53,7 @@ def _summary(
         ),
         action=SimpleNamespace(
             kind=kind,
-            primary_command=primary_command,
+            primary_command=primary_command or (f"desloppify scan --path {scan_path}" if kind == "scan" else None),
             secondary_command=secondary_command,
         ),
     )
@@ -67,15 +68,42 @@ def test_user_prompt_submit_activates_session_and_injects_context(tmp_path) -> N
         "cwd": str(tmp_path),
     }
 
-    response = hook_mod.handle_user_prompt_submit(payload, config_root=tmp_path)
+    response = hook_mod.handle_user_prompt_submit(
+        payload,
+        config_root=tmp_path,
+        state_summary_fn=lambda _cwd: _summary(strict=84.0, kind="scan"),
+    )
 
     assert "hookSpecificOutput" in response
-    assert "strict >= 95.0" in response["hookSpecificOutput"]["additionalContext"]
-    assert "desloppify plan queue" in response["hookSpecificOutput"]["additionalContext"]
-    assert "desloppify plan promote ..." in response["hookSpecificOutput"]["additionalContext"]
-    assert "Do not inspect backlog or edit code" in response["hookSpecificOutput"]["additionalContext"]
+    assert "No loop state exists yet" in response["hookSpecificOutput"]["additionalContext"]
+    assert "`desloppify scan --path .`" in response["hookSpecificOutput"]["additionalContext"]
     session_state = hook_mod._read_session_state(tmp_path, "abc-123")
     assert session_state["enabled"] is True
+
+
+def test_user_prompt_submit_uses_state_driven_next_guidance(tmp_path) -> None:
+    hook_mod = _load_hook_module()
+    payload = {
+        "hook_event_name": "UserPromptSubmit",
+        "prompt": "$desloppify-loop95 keep going",
+        "session_id": "abc-124",
+        "cwd": str(tmp_path),
+    }
+
+    response = hook_mod.handle_user_prompt_submit(
+        payload,
+        config_root=tmp_path,
+        state_summary_fn=lambda _cwd: _summary(
+            strict=90.0,
+            kind="next",
+            execution_summary="Fix stale plan item",
+            execution_primary_command="desloppify next",
+        ),
+    )
+
+    assert "Use `desloppify next`" in response["hookSpecificOutput"]["additionalContext"]
+    assert "Top execution item: Fix stale plan item" in response["hookSpecificOutput"]["additionalContext"]
+    assert "desloppify plan queue" in response["hookSpecificOutput"]["additionalContext"]
 
 
 def test_stop_hook_blocks_for_review_before_execution(tmp_path) -> None:

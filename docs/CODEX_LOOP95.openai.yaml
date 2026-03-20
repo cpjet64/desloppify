@@ -1,7 +1,9 @@
 interface:
   display_name: "Desloppify Loop95"
   short_description: "Raise strict score to 95 with a hook-enforced fix loop."
-  default_prompt: "Use $desloppify-loop95 to keep this repo moving until `desloppify status` shows `strict >= 95.0` and review is fresh. Start with `desloppify scan --path .`. If the current scan needs review, run `desloppify review --prepare --path .` and `desloppify review --run-batches --runner codex --parallel --scan-after-import --path .` before touching code. If review findings are open, run `desloppify show review --status open` and work that queue first. Only then use `desloppify next`. When execution empties, run `desloppify plan queue` and only use the exact `desloppify plan promote ...` command it recommends. Rescan after the current work chunk is exhausted. Stop only at `strict >= 95.0` or `LOOP95_BLOCKED:` with the exact command, exact error, and current strict score."
+  default_prompt: "Use $desloppify-loop95 to keep this repo moving until `desloppify status` shows `strict >= 95.0` and review is fresh. Start with `desloppify scan --path .` and continue with:
+`desloppify status`, then `desloppify review --prepare --path .` and `desloppify review --run-batches --runner codex --parallel --scan-after-import --path .` when review is pending, then `desloppify show review --status open` if findings are open, then `desloppify next`.
+If execution drains, run `desloppify plan queue` and execute only the exact `desloppify plan promote ...` flow it recommends. After each resolved chunk, rescan and repeat. Stop only at `strict >= 95.0` or `LOOP95_BLOCKED:` with the exact command, exact error, and current strict score."
 
 policy:
   allow_implicit_invocation: false

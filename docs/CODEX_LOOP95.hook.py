@@ -125,10 +125,73 @@ def _stop_reason(summary) -> str:
     )
 
 
-def handle_user_prompt_submit(payload: dict, *, config_root: Path) -> dict:
+def _user_prompt_context(summary) -> str:
+    scan_cmd = f"desloppify scan --path {summary.scan_path}"
+    state = _summary_details(summary)
+    action = summary.action
+    if action.kind == "done":
+        return (
+            f"target state achieved ({state}). Continue normal cleanup, "
+            "and do not resume loop actions unless strict drops below target."
+        )
+    if action.kind == "scan":
+        return (
+            "No loop state exists yet. Run "
+            f"`{action.primary_command}` first and then `desloppify status` before making changes."
+        )
+    if action.kind == "review":
+        return (
+            f"State ({state}) is below target or review is not fresh. "
+            f"Run `{summary.review_prepare_command}` and then `{summary.review_run_batches_command}` now. "
+            f"After review import, run `{scan_cmd}`, then `desloppify status`."
+        )
+    if action.kind == "show_review":
+        return (
+            f"State ({state}) has open review findings. "
+            f"Run `{action.primary_command}` and clear those findings before any new code changes. "
+            f"Then run `{scan_cmd}` and `desloppify status` again."
+        )
+    if action.kind == "next":
+        top_item = f" Top execution item: {summary.execution_summary}." if summary.execution_summary else ""
+        primary = f" Primary action: `{summary.execution_primary_command}`." if summary.execution_primary_command else ""
+        return (
+            f"State ({state}) is in execution mode. Use `desloppify next`.{top_item}{primary} "
+            "If execution queue is empty, run `desloppify plan queue` and then follow that exact output."
+        )
+    if action.kind == "promote":
+        backlog_hint = f" Top backlog item: {summary.backlog_summary}." if summary.backlog_summary else ""
+        return (
+            f"State ({state}) has no execution queue but promotable backlog is available.{backlog_hint} "
+            f"Run `{action.primary_command}` and then `{action.secondary_command}`."
+        )
+    if action.kind == "blocked":
+        return (
+            f"State ({state}) has no actionable review, execution, or promotable backlog below target. "
+            "Re-check `desloppify status`, `desloppify plan queue`, and `desloppify backlog --count 10`. "
+            f"If genuinely blocked, use `{BLOCKER_TOKEN}` with exact command, exact error, and current strict score."
+        )
+    return (
+        f"State ({state}) still needs work. "
+        "Run `desloppify status` and continue from the next recommended command path."
+    )
+
+
+def handle_user_prompt_submit(
+    payload: dict,
+    *,
+    config_root: Path,
+    state_summary_fn=_state_summary_from_repo,
+) -> dict:
     prompt = str(payload.get("prompt", "") or "")
     if not _skill_activated(prompt):
         return {}
+    try:
+        summary = state_summary_fn(str(payload.get("cwd", "") or "."))
+    except Exception as exc:
+        summary = None
+        summary_error = str(exc)
+    else:
+        summary_error = None
     session_id = str(payload.get("session_id", "") or "").strip()
     if session_id:
         _write_session_state(
@@ -143,15 +206,11 @@ def handle_user_prompt_submit(payload: dict, *, config_root: Path) -> dict:
         "hookSpecificOutput": {
             "hookEventName": "UserPromptSubmit",
             "additionalContext": (
-                "desloppify-loop95 is active for this session. Start with `desloppify scan --path .`, "
-                "check `desloppify status`, and if strict is still below target run subjective review for this scan "
-                "before continuing with `desloppify next`. Do not inspect backlog or edit code while review is "
-                "pending or while `desloppify show review --status open` still has work. When `next` empties, run "
-                "`desloppify plan queue`, follow its exact empty-state guidance, and if it points to promotable "
-                "backlog run the suggested `desloppify plan promote ...` command before continuing; "
-                f"when the current work chunk is exhausted, rescan. Do not stop until `desloppify status` shows "
-                f"`strict >= {TARGET_STRICT:.1f}` and review is fresh. If you are genuinely blocked, stop only with "
-                f"`{BLOCKER_TOKEN}` followed by the exact command, exact error, and current strict score."
+                "desloppify-loop95 is active for this session. "
+                + _user_prompt_context(summary)
+                if summary is not None
+                else f"desloppify-loop95 is active for this session, but it could not read repo state: {summary_error}. "
+                "Run `desloppify scan --path .` first, then retry this hook."
             ),
         }
     }
